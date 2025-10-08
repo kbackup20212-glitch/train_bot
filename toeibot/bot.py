@@ -850,14 +850,18 @@ async def check_train_info():
     if all_trains_by_line is None: return
 
     for line_key, config in LINE_CONFIG.items():
-        line_jp_name, timetable, conditional_timetable, type_dict = config['jp_name'], config.get('timetable', set()), config.get('conditional_timetable', []), config['type_dict']
-        handover_stations, station_order = config.get('handover_stations', {}), config.get('station_order', [])
+        line_jp_name = config['jp_name']
+        timetable = config.get('timetable', set())
+        conditional_timetable = config.get('conditional_timetable', [])
+        type_dict = config.get('type_dict', {})
         
         current_trains = all_trains_by_line.get(line_key, set())
         
         # ★もし、チェック中の路線が東武東上線なら、探偵モードを起動！
         if line_key == 'Tojo':
-            # 1. 「消えた電車」の検知と予測 (東上線限定)
+            handover_stations = config.get('handover_stations', {})
+            station_order = config.get('station_order', [])
+            
             previous_trains = previous_trains_by_line.get(line_key, set())
             previous_train_numbers = {train[0] for train in previous_trains}
             current_train_numbers = {train[0] for train in current_trains}
@@ -865,27 +869,26 @@ async def check_train_info():
             
             disappeared_trains_full_data = {train for train in previous_trains if train[0] in disappeared_train_numbers}
 
-        # 「本当に異常な」消滅だけを抜き出す
-        truly_disappeared_trains = set()
-        for train in disappeared_trains_full_data:
-            _, _, destination_en, from_station_en, to_station_en, _ = train
-            if from_station_en == destination_en or to_station_en == destination_en: continue
-            is_normal_handover = False
-            for station, valid_dests in handover_stations.items():
-                if from_station_en == station and destination_en in valid_dests:
-                    is_normal_handover = True
-                    break
-            if is_normal_handover: continue
-            truly_disappeared_trains.add(train)
-        
-        if truly_disappeared_trains:
-            train_info_text = get_train_information(config['operator'], config['api_name'])
-            incident_section = extract_incident_section(train_info_text)
+            truly_disappeared_trains = set()
+            for train in disappeared_trains_full_data:
+                _, _, destination_en, from_station_en, to_station_en, _ = train
+                if from_station_en == destination_en or to_station_en == destination_en: continue
+                is_normal_handover = False
+                for station, valid_dests in handover_stations.items():
+                    if from_station_en == station and destination_en in valid_dests:
+                        is_normal_handover = True
+                        break
+                if is_normal_handover: continue
+                truly_disappeared_trains.add(train)
             
-            user = await client.fetch_user(NOTIFICATION_USER_ID)
-            if user:
-                message_parts = []
-                inv_station_dict = {v: k for k, v in STATION_DICT.items()}
+            # ★通知処理も、ちゃんと if の中に入れる！
+            if truly_disappeared_trains:
+                train_info_text = get_train_information(config['operator'], config['api_name'])
+                incident_section = extract_incident_section(train_info_text)
+                user = await client.fetch_user(NOTIFICATION_USER_ID)
+                if user:
+                    message_parts = []
+                    inv_station_dict = {v: k for k, v in STATION_DICT.items()}
 
                 for train in truly_disappeared_trains:
                     train_number, train_type_en, destination_en, from_station_en, to_station_en, rail_direction = train

@@ -700,7 +700,7 @@ STOPPING_PATTERNS = {
 }
 
 # 5. チェック間隔
-CHECK_INTERVAL_SECONDS = 300
+CHECK_INTERVAL_SECONDS = 120
 
 # ---------------------------------------------------------------
 # --- Renderを眠らせないためのWebサーバー機能 ---

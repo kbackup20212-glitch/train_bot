@@ -197,6 +197,29 @@ LINE_CONFIG = {
             'HigashiMatsuyama', 'ShinrinKoen', 'Tsukinowa', 'MusashiRanzan', 'Ogawamachi',
             'TobuTakezawa', 'MinamiYorii', 'Obusuma', 'Hachigata', 'Tamayodo', 'Yorii'
         ],
+        'ignore_disappearances': [
+            {
+                'destination': 'Shiki', 
+                'last_seen_at': ['Asaka', 'Asakadai']
+            },
+            {
+                'destination': 'Kawagoeshi', 
+                'last_seen_at': ['Kawagoe', 'Shingashi']
+            },
+            {
+                'destination': 'Narimasu', 
+                'last_seen_at': ['ShimoAkatsuka', 'TobuNerima']
+                
+            },
+            {
+                'destination': 'Yorii', 
+                'last_seen_at': ['Tamayodo']
+            },
+            {
+                'destination': 'Ikebukuro', 
+                'last_seen_at': ['ShimoItabashi', 'KitaIkebukuro']
+            }
+        ],
         'timetable': {
             # ★ここに、君がこれから作る東上線の定期運用リストを入れる！
             # --- 川越特急 ---
@@ -861,7 +884,7 @@ async def check_train_info():
         if line_key == 'Tojo':
             handover_stations = config.get('handover_stations', {})
             station_order = config.get('station_order', [])
-            
+            ignore_rules = config.get('ignore_disappearances', [])
             previous_trains = previous_trains_by_line.get(line_key, set())
             previous_train_numbers = {train[0] for train in previous_trains}
             current_train_numbers = {train[0] for train in current_trains}
@@ -879,6 +902,12 @@ async def check_train_info():
                         is_normal_handover = True
                         break
                 if is_normal_handover: continue
+                is_ignored = False
+                for rule in ignore_rules:
+                    if destination_en == rule['destination'] and from_station_en in rule['last_seen_at']:
+                        is_ignored = True
+                        break
+                if is_ignored: continue
                 truly_disappeared_trains.add(train)
             
             # ★通知処理も、ちゃんと if の中に入れる！
@@ -934,7 +963,21 @@ async def check_train_info():
                         to_station_jp = STATION_DICT.get(to_station_en, to_station_en)
                         location_text = f"{from_station_jp}→{to_station_jp}を走行中"
                     else:
-                        location_text = f"{from_station_jp}に停車中"
+                        # --- ↓↓↓↓ここが正しい判断ロジック！↓↓↓↓ ---
+                        # 駅にいる場合の判断
+                        if 'Local' in train_type_en:
+                            location_text = f"{from_station_jp}に停車中"
+                        else:
+                            line_patterns = STOPPING_PATTERNS.get(line_key, {})
+                            if train_type_en in line_patterns:
+                                stops_list = line_patterns[train_type_en]
+                                if from_station_en in stops_list:
+                                    location_text = f"{from_station_jp}に停車中"
+                                else:
+                                    location_text = f"{from_station_jp}を通過中"
+                            else:
+                                # パターンがなければ、各停とみなして「停車中」
+                                location_text = f"{from_station_jp}に停車中"
                     
                     line1 = f"[{line_jp_name}] {train_type_jp} {final_destination_jp}行き ({train_number})"
                     train_info = f"{line1}\n{location_text}"

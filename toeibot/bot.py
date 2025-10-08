@@ -882,7 +882,7 @@ async def check_train_info():
 
                 for train in truly_disappeared_trains:
                     train_number, train_type_en, destination_en, from_station_en, to_station_en, rail_direction = train
-                    
+                    predicted_dest_jp = None
                     if incident_section and station_order:
                         try:
                             station1_jp, station2_jp = incident_section.split('～')

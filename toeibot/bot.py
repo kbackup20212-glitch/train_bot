@@ -186,7 +186,7 @@ LINE_CONFIG = {
         'api_name': 'Tobu.Tojo', # 東上線のAPI名
         'jp_name': '東武東上線',
         'handover_stations': {
-            'Wakoshi': ['MotomachiChukagai', 'ShinKiba', 'Shonandai', 'MusashiKosugi'] # 和光市で乗り換えるのが自然な行き先
+            'Wakoshi': ['MotomachiChukagai', 'ShinKiba', 'Shonandai', 'Ebina', 'MusashiKosugi'] # 和光市で乗り換えるのが自然な行き先
         },
         'station_order': [
             'Ikebukuro', 'KitaIkebukuro', 'ShimoItabashi', 'Oyama', 'NakaItabashi', 
@@ -917,17 +917,54 @@ async def check_train_info():
                 user = await client.fetch_user(NOTIFICATION_USER_ID)
                 if user:
                     message_parts = []
+                # 日本語→API名への逆引き辞書を作成（予測ロジックで使用）
                     inv_station_dict = {v: k for k, v in STATION_DICT.items()}
 
-                for train in truly_disappeared_trains:
-                    train_number, train_type_en, destination_en, from_station_en, to_station_en, rail_direction = train
+                    for train in truly_disappeared_trains:
+                    # 電車の詳細情報を分解
+                        train_number, train_type_en, destination_en, from_station_en, to_station_en, rail_direction = train
+                    
+                    # 予測行き先を入れるための変数を、まず空っぽで用意
                     predicted_dest_jp = None
-                    if incident_section and station_order:
-                        try:
-                            station1_jp, station2_jp = incident_section.split('～')
-                            s1_en = inv_station_dict.get(station1_jp)
-                            s2_en = inv_station_dict.get(station2_jp)
+                    # 地下鉄直通の行き先リストを取得
+                    subway_dests = handover_stations.get('Wakoshi', [])
 
+                    # --- ここからが君の設計した究極の思考回路！ ---
+                    
+                    # 状況1: 「見合わせ」と「直通中止」が同時に発生している場合
+                    if train_info_text and "運転を見合わせています" in train_info_text and "直通運転も中止しています" in train_info_text:
+                        # さらに、消えた電車が地下鉄行きだった場合
+                        if destination_en in subway_dests:
+                            # 1-A: 特定の区間（上板橋～成増 or 池袋～和光市）なら「志木」行きと予測
+                            if incident_section in ["上板橋～成増", "池袋～和光市"]:
+                                predicted_dest_jp = '志木'
+                            # 1-B: それ以外の区間なら、通常の見合わせルールで予測
+                            else:
+                                try:
+                                    s1_jp, s2_jp = incident_section.split('～')
+                                    s1_en = inv_station_dict.get(s1_jp)
+                                    s2_en = inv_station_dict.get(s2_jp)
+                                    if s1_en and s2_en:
+                                        idx_s1 = station_order.index(s1_en)
+                                        idx_s2 = station_order.index(s2_en)
+                                        if 'Inbound' in rail_direction:
+                                            predicted_dest_jp = STATION_DICT.get(station_order[max(idx_s1, idx_s2)])
+                                        elif 'Outbound' in rail_direction:
+                                            predicted_dest_jp = STATION_DICT.get(station_order[min(idx_s1, idx_s2)])
+                                except Exception as e:
+                                    print(f"通常予測ロジック(1-B)でエラー: {e}")
+
+                    # 状況2: 「直通中止」だけが発生している場合
+                    elif train_info_text and "直通運転を中止しています" in train_info_text:
+                        if destination_en in subway_dests:
+                            predicted_dest_jp = '志木'
+
+                    # 状況3: 「見合わせ」だけが発生している場合
+                    elif incident_section and station_order:
+                        try:
+                            s1_jp, s2_jp = incident_section.split('～')
+                            s1_en = inv_station_dict.get(s1_jp)
+                            s2_en = inv_station_dict.get(s2_jp)
                             if s1_en and s2_en:
                                 idx_from = station_order.index(from_station_en)
                                 idx_s1 = station_order.index(s1_en)
@@ -936,22 +973,13 @@ async def check_train_info():
                                 section_start_idx = min(idx_s1, idx_s2)
                                 section_end_idx = max(idx_s1, idx_s2)
 
-                                # --- 予測可能かどうかの判断 ---
-                                is_predictable = False
+                                # 予測可能かどうかの判断（地理的に無理な予測をしない）
                                 if 'Inbound' in rail_direction and idx_from > section_end_idx:
-                                    # 上り電車が、障害区間の「奥」にいる場合のみ予測可能
-                                    is_predictable = True
                                     predicted_dest_jp = STATION_DICT.get(station_order[section_end_idx])
                                 elif 'Outbound' in rail_direction and idx_from < section_start_idx:
-                                    # 下り電車が、障害区間の「手前」にいる場合のみ予測可能
-                                    is_predictable = True
                                     predicted_dest_jp = STATION_DICT.get(station_order[section_start_idx])
-                                
-                                # 予測不可能な場合は何もしない (predicted_dest_jp は None のまま)
-
                         except Exception as e:
-                            print(f"予測ロジックでエラー: {e}")
-                    
+                            print(f"予測ロジックでエラー: {e}")                    
                     # --- ↑↑↑↑ここまでが君のロジック！↑↑↑↑ ---
                     
                     # メッセージ組み立て

@@ -1,13 +1,18 @@
 # 必要な道具（ライブラリ）を呼び出す
-
-import os
-from dotenv import load_dotenv
-load_dotenv()
 import discord
 from discord.ext import tasks
 import requests
 import asyncio
+import os
 from datetime import date
+from dotenv import load_dotenv
+
+# ★★★ここからがハイブリッド化のための追加道具★★★
+from flask import Flask
+from threading import Thread
+# ★★★ここまで★★★
+
+load_dotenv()
 
 # Botが最後にチェックした日付を記憶するための場所
 last_check_date = None
@@ -692,6 +697,22 @@ STOPPING_PATTERNS = {
 CHECK_INTERVAL_SECONDS = 300
 
 # ---------------------------------------------------------------
+# --- Renderを騙すための「見せかけのWebサーバー」 ---
+# ---------------------------------------------------------------
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "I'm alive"
+
+def run():
+    app.run(host='0.0.0.0', port=8080)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+
+# ---------------------------------------------------------------
 # --- プログラム本体 ---
 # ---------------------------------------------------------------
 
@@ -909,6 +930,10 @@ async def check_train_info():
 
 # Botを起動する
 try:
+    # ★★★ここが最終変更点！★★★
+    # Webサーバーを起動
+    keep_alive()
+    # Botを起動
     client.run(DISCORD_BOT_TOKEN)
 except Exception as e:
     print(f"Botの起動に失敗しました: {e}")

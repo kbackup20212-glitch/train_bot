@@ -4,36 +4,29 @@ from discord.ext import tasks
 import requests
 import asyncio
 import os
+import re
 from datetime import date
 from dotenv import load_dotenv
 
-# ★★★ここからがハイブリッド化のための追加道具★★★
+# Webサーバー機能のための道具
 from flask import Flask
 from threading import Thread
-# ★★★ここまで★★★
 
+# .envファイルから環境変数を読み込む
 load_dotenv()
-
-# Botが最後にチェックした日付を記憶するための場所
-last_check_date = None
 
 # ---------------------------------------------------------------
 # --- 設定エリア ---
 # ---------------------------------------------------------------
 
-# 1. Discord Botの「秘密の合言葉」
+# 1. 秘密の鍵 (Renderの環境変数で設定)
 DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
-
-# 2. 通知を送りたい相手のユーザーID
 NOTIFICATION_USER_ID = os.getenv('NOTIFICATION_USER_ID')
-
-# 3. APIキーの設定エリア
 API_KEYS = {
     'Toei': os.getenv('ODPT_TOKEN_TOEI'),
     'Tobu': os.getenv('ODPT_TOKEN_CHALLENGE'),
     'JR-East': os.getenv('ODPT_TOKEN_CHALLENGE')
 }
-
 
 # --- 複数路線対応のための設定エリア ---
 LINE_CONFIG = {
@@ -192,6 +185,18 @@ LINE_CONFIG = {
         'operator': 'Tobu',
         'api_name': 'Tobu.Tojo', # 東上線のAPI名
         'jp_name': '東武東上線',
+        'handover_stations': {
+            'Wakoshi': ['MotomachiChukagai', 'ShinKiba', 'Shonandai', 'MusashiKosugi'] # 和光市で乗り換えるのが自然な行き先
+        },
+        'station_order': [
+            'Ikebukuro', 'KitaIkebukuro', 'ShimoItabashi', 'Oyama', 'NakaItabashi', 
+            'Tokiwadai', 'KamiItabashi', 'TobuNerima', 'ShimoAkatsuka', 'Narimasu', 
+            'Wakoshi', 'Asaka', 'Asakadai', 'Shiki', 'Yanasegawa', 'Mizuhodai', 
+            'Tsuruse', 'Fujimino', 'KamiFukuoka', 'Shingashi', 'Kawagoe', 'Kawagoeshi',
+            'Kasumigaseki', 'Tsurugashima', 'Wakaba', 'Sakado', 'KitaSakado', 'Takasaka',
+            'HigashiMatsuyama', 'ShinrinKoen', 'Tsukinowa', 'MusashiRanzan', 'Ogawamachi',
+            'TobuTakezawa', 'MinamiYorii', 'Obusuma', 'Hachigata', 'Tamayodo', 'Yorii'
+        ],
         'timetable': {
             # ★ここに、君がこれから作る東上線の定期運用リストを入れる！
             # --- 川越特急 ---
@@ -226,7 +231,7 @@ LINE_CONFIG = {
             ('odpt.TrainType:Tobu.SemiExpress', 'Ogawamachi'),
 
             # --- 普通 ---
-            ('odpt.TrainType:Tobu.Local', 'Ikebukuro'),
+            #('odpt.TrainType:Tobu.Local', 'Ikebukuro'),
             ('odpt.TrainType:Tobu.Local', 'ShinKiba'),
             ('odpt.TrainType:Tobu.Local', 'Shonandai'),
             ('odpt.TrainType:Tobu.Local', 'MusashiKosugi'),
@@ -332,6 +337,7 @@ LINE_CONFIG = {
             ('odpt.TrainType:JR-East.LimitedExpress', 'Tokyo'),
             ('odpt.TrainType:JR-East.LimitedExpress', 'Shinjuku'),
             ('odpt.TrainType:JR-East.LimitedExpress', 'Kofu'),
+            ('odpt.TrainType:JR-East.LimitedExpress', 'Ryuo'),
             ('odpt.TrainType:JR-East.LimitedExpress', 'Matsumoto'),
             ('odpt.TrainType:JR-East.LimitedExpress', 'Hakuba'),
         },
@@ -399,12 +405,17 @@ LINE_CONFIG = {
         'timetable': {
             # ★代表的な行き先だけを入れた仮のリスト。後で君の知識で育ててね！
             #普通
-            ('odpt.TrainType:JR-East.Local', 'Ohuna'),
+            ('odpt.TrainType:JR-East.Local', 'Odawara'),
+            ('odpt.TrainType:JR-East.Local', 'Kozu'),
+            ('odpt.TrainType:JR-East.Local', 'Hiratsuka'),
+            ('odpt.TrainType:JR-East.Local', 'Ofuna'),
             ('odpt.TrainType:JR-East.Local', 'Zushi'),
             ('odpt.TrainType:JR-East.Local', 'Koga'),
             ('odpt.TrainType:JR-East.Local', 'Koganei'),
             ('odpt.TrainType:JR-East.Local', 'Utsunomiya'),
             ('odpt.TrainType:JR-East.Local', 'Kagohara'),
+            ('odpt.TrainType:JR-East.Local', 'Takasaki'),
+            ('odpt.TrainType:JR-East.Local', 'Maebashi'),
 
             #快速
             ('odpt.TrainType:JR-East.Rapid', 'Maebashi'),
@@ -540,17 +551,6 @@ STATION_DICT = {
     'Jiyugaoka': '自由が丘', 'MusashiKosugi': '武蔵小杉', 'Kikuna': '菊名', 
     'Yokohama': '横浜', 'MotomachiChukagai': '元町・中華街',
 
-    # --- [追加] JR東日本 ---
-    'Omiya': '大宮', 'MinamiUrawa': '南浦和', 'Akabane': '赤羽', 'HigashiJujo': '東十条',
-    'Ueno': '上野', 'Kamata': '蒲田', 'Tsurumi': '鶴見', 'HigashiKanagawa': '東神奈川',
-    'Sakuragicho': '桜木町', 'Isogo': '磯子', 'Ofuna': '大船', 'Tokyo': '東京',
-    'MusashiKoganei': '武蔵小金井', 'Kokubunji': '国分寺', 'Tachikawa': '立川',
-    'Toyoda': '豊田', 'Hachioji': '八王子', 'Takao': '高尾', 'Otsuki': '大月',
-    'Kawaguchiko': '河口湖', 'Ome': '青梅', 'Shinjuku': '新宿', 'Kofu': '甲府',
-    'Matsumoto': '松本', 'Hakuba': '白馬', 'Kobuchizawa': '小淵沢', 'Kawagoe': '川越',
-    'MusashiUrawa': '武蔵浦和', 'Ikebukuro': '池袋', 'Osaki': '大崎',
-    'ShinKiba': '新木場', 'Ebina': '海老名',
-
     # --- [追加] JR中央快速線 ---
     'Tokyo': '東京', 'Kanda': '神田', 'Ochanomizu': '御茶ノ水', 'Yotsuya': '四ツ谷', 
     'Shinjuku': '新宿', 'Nakano': '中野', 'Koenji': '高円寺', 'Asagaya': '阿佐ヶ谷', 
@@ -577,16 +577,21 @@ STATION_DICT = {
     'Fujisan': '富士山', 'FujikyuHighland': '富士急ハイランド', 'Kawaguchiko': '河口湖',
 
     # --- [追加] JR中央本線・篠ノ井線・大糸線 (主要駅) ---
-    'Kofu': '甲府', 'Nirasaki': '韮崎', 'Kobuchizawa': '小淵沢', 'Chino': '茅野', 
+    'Kofu': '甲府', 'Ryuo': '竜王', 'Nirasaki': '韮崎', 'Kobuchizawa': '小淵沢', 'Chino': '茅野', 
     'KamiSuwa': '上諏訪', 'ShimoSuwa': '下諏訪', 'Okaya': '岡谷', 'Shiojiri': '塩尻', 
     'Matsumoto': '松本', 'ShinanoOmachi': '信濃大町', 'Hakuba': '白馬', 'MinamiOtari': '南小谷',
+    'Nagano': '長野', 
+
+    # --- [追加] JR臨時列車用 (主要駅) ---
+    'Hitachi': '日立', 'Ashikaga': '足利', 'HigashiTokorozawa': '東所沢', 'EchigoYuzawa': '越後湯沢',  
+    'Ujiie': '氏家', 
 
     # --- [追加] JR総武線・房総各線 (主要駅) ---
     'Kinshicho': '錦糸町', 'Funabashi': '船橋', 'Tsudanuma': '津田沼', 'Chiba': '千葉', 
-    'Soga': '蘇我', 'Kisarazu': '木更津', 'Kimitsu': '君津', 'Tateyama': '館山', 
+    'Soga': '蘇我', 'Kisarazu': '木更津', 'Kimitsu': '君津', 'Tateyama': '館山', 'Chikura': '千倉', 
     'AwaKamogawa': '安房鴨川', 'Oami': '大網', 'Mobara': '茂原', 'KazusaIchinomiya': '上総一ノ宮', 
-    'Ohara': '大原', 'Katsuura': '勝浦', 'Sakura': '佐倉', 'Narita': '成田', 
-    'NaritaAirport': '成田空港', 'Choshi': '銚子', 'Omiya': '大宮', 'HigashiTokorozawa': '東所沢',
+    'Ohara': '大原', 'Katsuura': '勝浦', 'Sakura': '佐倉', 'Narita': '成田', 'Sawara': '佐原',  
+    'NaritaAirport': '成田空港', 'Choshi': '銚子', 'KashimaJingu': '鹿島神宮',
 
     # --- [追加] JR京浜東北線 ---
     'Omiya': '大宮', 'SaitamaShintoshin': 'さいたま新都心', 'Yono': '与野', 'KitaUrawa': '北浦和',
@@ -697,17 +702,14 @@ STOPPING_PATTERNS = {
 CHECK_INTERVAL_SECONDS = 300
 
 # ---------------------------------------------------------------
-# --- Renderを騙すための「見せかけのWebサーバー」 ---
+# --- Renderを眠らせないためのWebサーバー機能 ---
 # ---------------------------------------------------------------
 app = Flask('')
-
 @app.route('/')
 def home():
     return "I'm alive"
-
 def run():
     app.run(host='0.0.0.0', port=8080)
-
 def keep_alive():
     t = Thread(target=run)
     t.start()
@@ -716,18 +718,18 @@ def keep_alive():
 # --- プログラム本体 ---
 # ---------------------------------------------------------------
 
-# 通知済みの電車を路線ごとに記憶する箱
+# グローバル変数（記憶を保持するため）
+last_check_date = None
 notified_rare_trains = {line: set() for line in LINE_CONFIG.keys()}
+previous_trains_by_line = {line: set() for line in LINE_CONFIG.keys()}
 
-# APIから電車の情報を取得する関数（最終完成版）
+# APIから電車の情報を取得する関数
 def get_trains_from_api(operator_name):
-    # 使用するAPIキーを決定
     token = API_KEYS.get(operator_name)
     if not token:
         print(f"エラー: {operator_name}用のAPIキーが設定されていません。")
         return None
-
-    # 使用するURLを決定
+    
     if operator_name in ["Tobu", "JR-East"]:
         base_url = "https://api-challenge.odpt.org/api/v4/odpt:Train"
     else:
@@ -737,37 +739,72 @@ def get_trains_from_api(operator_name):
     
     try:
         response = requests.get(target_url)
-        response.raise_for_status() # HTTPエラーがあればここで例外を発生させる
+        response.raise_for_status()
         return response.json()
-    except requests.exceptions.HTTPError as e:
-        print(f"APIアクセスエラー ({e.response.status_code})！ {operator_name} のURLまたはトークンが間違っている可能性があります。")
-        return None
     except Exception as e:
         print(f"エラー発生！{operator_name}のAPIから情報を取得できませんでした。エラー内容: {e}")
         return None
 
-# 全路線の情報を整理する関数（最終版）
+# 運行情報の「文字」を取得するための関数（アップグレード版）
+def get_train_information(operator_name, line_api_name):
+    token = API_KEYS.get(operator_name)
+    if not token: return None
+
+    if operator_name in ["Tobu", "JR-East"]:
+        base_url = "https://api-challenge.odpt.org/api/v4/odpt:TrainInformation"
+    else:
+        base_url = "https://api.odpt.org/api/v4/odpt:TrainInformation"
+        
+    target_url = f"{base_url}?odpt:operator=odpt.Operator:{operator_name}&acl:consumerKey={token}"
+    
+    try:
+        response = requests.get(target_url)
+        info_data = response.json()
+        if info_data:
+            # ↓↓↓↓↓↓↓↓↓★ここが改造ポイント！↓↓↓↓↓↓↓↓↓
+            # 全ての運行情報をループで確認
+            for info in info_data:
+                # 探している路線の情報が見つかったら、その情報だけを返す
+                if info.get("odpt:railway") == f"odpt.Railway:{line_api_name}":
+                    return info.get("odpt:trainInformationText", {}).get("ja")
+            # ↑↑↑↑↑↑↑↑↑↑★ここまで改造！↑↑↑↑↑↑↑↑↑↑
+        return "平常運転" # 該当路線の情報が見つからなければ平常運転とみなす
+    except Exception as e:
+        print(f"エラー発生！{operator_name}の運行情報APIから情報を取得できませんでした。")
+        return None
+
+# 運行情報テキストから「運転見合わせ区間」を抜き出す専門家
+def extract_incident_section(text):
+    if text is None:
+        return None
+    
+    # 「〇〇駅間の上下線で運転を見合わせています」というパターンを探す
+    pattern = r"(.*?)駅間の上下線で運転を見合わせています"
+    
+    match = re.search(pattern, text)
+    
+    if match:
+        # パターンに一致した場合、カッコで囲んだ部分（駅名～駅名）を返す
+        return match.group(1)
+    
+    # パターンに一致しなかった場合は何も返さない
+    return None
+    
+# 全路線の情報を整理する関数
 def get_all_trains_by_line():
     all_trains_data = []
-    # 都営線のデータを取得
-    toei_data = get_trains_from_api("Toei")
-    if toei_data:
-        all_trains_data.extend(toei_data)
-    # 東武線のデータを取得
-    tobu_data = get_trains_from_api("Tobu")
-    if tobu_data:
-        all_trains_data.extend(tobu_data)
-    # JR東日本のデータを取得
-    jre_data = get_trains_from_api("JR-East")
-    if jre_data: all_trains_data.extend(jre_data)
-
+    operators_to_fetch = {config['operator'] for config in LINE_CONFIG.values()}
+    for operator in operators_to_fetch:
+        api_data = get_trains_from_api(operator)
+        if api_data:
+            all_trains_data.extend(api_data)
     if not all_trains_data:
         return None
 
     trains_by_line = {line: set() for line in LINE_CONFIG.keys()}
     for train in all_trains_data:
-        required_keys = ["odpt:railway", "odpt:trainNumber", "odpt:trainType", "odpt:destinationStation", "odpt:fromStation"]
-        if not all(key in train and train[key] for key in required_keys): continue
+        required_keys = ["odpt:railway", "odpt:trainNumber", "odpt:trainType", "odpt:fromStation"]
+        if not all(key in train and train.get(key) for key in required_keys): continue
         
         line_api_name_full = train["odpt:railway"].split(':')[-1]
         line_key = None
@@ -779,18 +816,12 @@ def get_all_trains_by_line():
         if line_key and line_key in trains_by_line:
             train_number = train["odpt:trainNumber"]
             train_type = train["odpt:trainType"]
-            destination_name = train["odpt:destinationStation"][-1].split('.')[-1]
             from_station = train["odpt:fromStation"].split('.')[-1]
             to_station_full = train.get("odpt:toStation")
             to_station = to_station_full.split('.')[-1] if to_station_full else None
-             # destinationStation が存在しない(null)場合を考慮
             destination_station_list = train.get("odpt:destinationStation")
-            if destination_station_list:
-                destination_name = destination_station_list[-1].split('.')[-1]
-            else:
-                destination_name = None # 行き先がない場合は None とする
+            destination_name = destination_station_list[-1].split('.')[-1] if destination_station_list else None
             trains_by_line[line_key].add((train_number, train_type, destination_name, from_station, to_station))
-            
     return trains_by_line
 
 # Discordに接続するための準備
@@ -804,136 +835,181 @@ async def on_ready():
 
 @tasks.loop(seconds=CHECK_INTERVAL_SECONDS)
 async def check_train_info():
-    global last_check_date
+    global last_check_date, previous_trains_by_line
     today = date.today()
-
     if last_check_date != today:
         print(f"日付が変わりました。({last_check_date} -> {today}) 通知履歴をリセットします。")
-        for line_key in notified_rare_trains:
-            notified_rare_trains[line_key].clear()
+        for key in notified_rare_trains: notified_rare_trains[key].clear()
         last_check_date = today
 
     print(f"{CHECK_INTERVAL_SECONDS}秒ごとに全路線の運行情報をチェックします...")
     
     all_trains_by_line = get_all_trains_by_line()
-    
-    if all_trains_by_line is None:
-        return
+    if all_trains_by_line is None: return
 
     for line_key, config in LINE_CONFIG.items():
-        line_jp_name = config['jp_name']
-        timetable = config['timetable']
-        type_dict = config['type_dict']
-        conditional_timetable = config.get('conditional_timetable', [])
+        line_jp_name, timetable, conditional_timetable, type_dict = config['jp_name'], config.get('timetable', set()), config.get('conditional_timetable', []), config['type_dict']
+        handover_stations, station_order = config.get('handover_stations', {}), config.get('station_order', [])
+        
         current_trains = all_trains_by_line.get(line_key, set())
         
+        # --- 1. 「消えた電車」の検知と予測 ---
+        previous_trains = previous_trains_by_line.get(line_key, set())
+        disappeared_trains = previous_trains - current_trains
+        
+        truly_disappeared_trains = set()
+        for train in disappeared_trains:
+            _, _, destination_en, from_station_en, to_station_en, _ = train
+            if from_station_en == destination_en or to_station_en == destination_en: continue
+            is_normal_handover = False
+            for station, valid_dests in handover_stations.items():
+                if from_station_en == station and destination_en in valid_dests:
+                    is_normal_handover = True
+                    break
+            if is_normal_handover: continue
+            truly_disappeared_trains.add(train)
+        
+        if truly_disappeared_trains:
+            train_info_text = get_train_information(config['operator'], config['api_name'])
+            incident_section = extract_incident_section(train_info_text)
+            
+            user = await client.fetch_user(NOTIFICATION_USER_ID)
+            if user:
+                message_parts = []
+                inv_station_dict = {v: k for k, v in STATION_DICT.items()}
+
+                for train in truly_disappeared_trains:
+                    train_number, train_type_en, destination_en, from_station_en, to_station_en, rail_direction = train
+                    
+                    if incident_section and station_order:
+                        try:
+                            station1_jp, station2_jp = incident_section.split('～')
+                            s1_en = inv_station_dict.get(station1_jp)
+                            s2_en = inv_station_dict.get(station2_jp)
+
+                            if s1_en and s2_en:
+                                idx_from = station_order.index(from_station_en)
+                                idx_s1 = station_order.index(s1_en)
+                                idx_s2 = station_order.index(s2_en)
+                                
+                                section_start_idx = min(idx_s1, idx_s2)
+                                section_end_idx = max(idx_s1, idx_s2)
+
+                                # --- 予測可能かどうかの判断 ---
+                                is_predictable = False
+                                if 'Inbound' in rail_direction and idx_from > section_end_idx:
+                                    # 上り電車が、障害区間の「奥」にいる場合のみ予測可能
+                                    is_predictable = True
+                                    predicted_dest_jp = STATION_DICT.get(station_order[section_end_idx])
+                                elif 'Outbound' in rail_direction and idx_from < section_start_idx:
+                                    # 下り電車が、障害区間の「手前」にいる場合のみ予測可能
+                                    is_predictable = True
+                                    predicted_dest_jp = STATION_DICT.get(station_order[section_start_idx])
+                                
+                                # 予測不可能な場合は何もしない (predicted_dest_jp は None のまま)
+
+                        except Exception as e:
+                            print(f"予測ロジックでエラー: {e}")
+                    
+                    # --- ↑↑↑↑ここまでが君のロジック！↑↑↑↑ ---
+                    
+                    # メッセージ組み立て
+                    train_type_jp = type_dict.get(train_type_en, train_type_en)
+                    final_destination_jp = predicted_dest_jp if predicted_dest_jp else "行先不明"
+                    from_station_jp = STATION_DICT.get(from_station_en, from_station_en)
+                    
+                    if to_station_en:
+                        to_station_jp = STATION_DICT.get(to_station_en, to_station_en)
+                        location_text = f"{from_station_jp}→{to_station_jp}を走行中"
+                    else:
+                        location_text = f"{from_station_jp}に停車中"
+                    
+                    line1 = f"[{line_jp_name}] {train_type_jp} {final_destination_jp}行き ({train_number})"
+                    train_info = f"{line1}\n{location_text}"
+                    if line_key == 'Tojo':
+                        train_info += "\n※行先情報は予測のため不正確な場合があります。"
+                    message_parts.append(train_info)
+                
+                if message_parts:
+                    final_body = "\n\n".join(message_parts)
+                    await user.send(final_body)
+
+        # --- STEP 5: 通常の「珍運用」を検知 ---
+        # (君が作った二段階判定のロジック)
         rare_trains = set()
         for train in current_trains:
-            train_number = train[0]
-            operation = (train[1], train[2])
-            
-            # --- 判定フェーズ1：通常の定期運用リストに載っているか？ ---
-            if operation in timetable:
-                continue # 載っていたらセーフ。次の電車のチェックへ。
-
-            # --- 判定フェーズ2：条件付きリストに載っているか？ ---
+            train_number, train_type, destination, _, _, _ = train
+            operation = (train_type, destination)
+            if operation in timetable: continue
             is_conditionally_safe = False
             for rule in conditional_timetable:
-                # 種別と行先がルールに一致するか？
                 if rule['operation'] == operation:
-                    # 一致した場合、列車番号が許可リストにあるか？
                     if train_number in rule['allowed_numbers']:
-                        is_conditionally_safe = True # 許可された列車番号なのでセーフ！
-                        break # この電車はセーフと確定したので、これ以上ルールを見ない
-            
-            if is_conditionally_safe:
-                continue # 条件付きでセーフだったので、次の電車のチェックへ。
-
-            # --- 最終判定 ---
-            # どちらのリストにも当てはまらなければ、珍しい運用として確定！
+                        is_conditionally_safe = True
+                        break
+            if is_conditionally_safe: continue
             rare_trains.add(train)
-        # --- ↑↑↑↑ここまでが最終形態の思考回路！↑↑↑↑ ---
 
-        # --- ↓↓↓↓↓ここから記憶ロジックを修正！↓↓↓↓↓ ---
-
-        # 1. まだ通知していない「新しい顔（列車番号）」の電車だけを探す
+        # 記憶と照らし合わせて、新しい珍運用だけを通知
         new_rare_trains = set()
         for train in rare_trains:
-            train_number = train[0]
-            if train_number not in notified_rare_trains[line_key]:
+            if train[0] not in notified_rare_trains[line_key]:
                 new_rare_trains.add(train)
         
         if new_rare_trains:
+            # --- ↓↓↓↓ここからが、省略されていた部分！↓↓↓↓ ---
             user = await client.fetch_user(NOTIFICATION_USER_ID)
             if user:
                 message_parts = []
                 for train in new_rare_trains:
-                    train_number, train_type_en, destination_en, from_station_en, to_station_en = train
+                    train_number, train_type_en, destination_en, from_station_en, to_station_en, rail_direction = train
+                    
+                    # 翻訳処理
                     train_type_jp = type_dict.get(train_type_en, train_type_en)
-                    # 行き先(destination)の翻訳
-                    if destination_en is None:
-                        # 行き先がNoneの場合、路線ごとに翻訳を分ける
-                        if line_key in ['Saikyo', 'ShonanShinjuku']:
-                            destination_jp = '蛇窪信号場'
-                        else:
-                            destination_jp = '行先なし' # 埼京線以外でNoneの場合は「行先なし」
-                    else:
-                        # 行き先がある場合は、通常通り辞書を引く
-                        destination_jp = STATION_DICT.get(destination_en, destination_en)
+                    destination_jp = STATION_DICT.get(destination_en, destination_en) if destination_en is not None else "行先なし"
+                    if destination_en is None and line_key in ['Saikyo', 'ShonanShinjuku']:
+                        destination_jp = '蛇窪信号場'
                     from_station_jp = STATION_DICT.get(from_station_en, from_station_en)
                     
+                    # 現在地のテキストを作成
                     if to_station_en:
-                        # 走行中のメッセージ
                         to_station_jp = STATION_DICT.get(to_station_en, to_station_en)
                         location_text = f"{from_station_jp}→{to_station_jp}を走行中"
                     else:
-                        # --- 駅にいる場合の判断（最終版） ---
-                        # 1. まず、種別が各停(Local)かチェック
+                        # 停車中/通過中の判断ロジック
                         if 'Local' in train_type_en:
                             location_text = f"{from_station_jp}に停車中"
                         else:
-                            # 2. 各停でなければ、停車駅パターンが定義されているかチェック
                             line_patterns = STOPPING_PATTERNS.get(line_key, {})
                             if train_type_en in line_patterns:
-                                # 3. パターンがあれば、停車駅リストを参照
-                                stops_list = line_patterns[train_type_en]
-                                if from_station_en in stops_list:
+                                if from_station_en in line_patterns[train_type_en]:
                                     location_text = f"{from_station_jp}に停車中"
                                 else:
                                     location_text = f"{from_station_jp}を通過中"
                             else:
-                                # 4. パターンがなければ、各停とみなして「停車中」
                                 location_text = f"{from_station_jp}に停車中"
-                    # ↑↑↑↑↑↑↑↑↑↑★ここまでが最終版の判断ロジック！↑↑↑↑↑↑↑↑↑↑
 
-                    # 2行のメッセージを作成してリストに追加
+                    # 君のデザインでメッセージを組み立て
                     train_info = f"[{line_jp_name}] {train_type_jp} {destination_jp}行き ({train_number})\n{location_text}"
                     message_parts.append(train_info)
                 
+                # 全体のメッセージを組み立てて送信
                 final_body = "\n\n".join(message_parts)
                 await user.send(final_body)
 
-                # 2. 通知した電車の「顔（列車番号）」を記憶する
+                # 通知した電車の「列車番号」を記憶する
                 for train in new_rare_trains:
                     train_number = train[0]
                     notified_rare_trains[line_key].add(train_number)
 
                 print(f"[{line_jp_name}] 通知を送信しました: {new_rare_trains}")
 
-        # 3. 路線上からいなくなった電車の「顔（列車番号）」を記憶から消す
-        current_train_numbers = {train[0] for train in current_trains}
-        disappeared_trains = notified_rare_trains[line_key] - current_train_numbers
-        if disappeared_trains:
-            notified_rare_trains[line_key].difference_update(disappeared_trains)
-            print(f"[{line_jp_name}] 走行終了を確認、記憶から削除: {disappeared_trains}")
-    # --- ↑↑↑↑↑ここまで記憶ロジックを修正！↑↑↑↑↑ ---
+        # --- STEP 6: 最後に、現在の状況を「短期記憶」に保存 ---
+        previous_trains_by_line[line_key] = current_trains
 
 # Botを起動する
 try:
-    # ★★★ここが最終変更点！★★★
-    # Webサーバーを起動
     keep_alive()
-    # Botを起動
     client.run(DISCORD_BOT_TOKEN)
 except Exception as e:
     print(f"Botの起動に失敗しました: {e}")

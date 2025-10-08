@@ -855,12 +855,19 @@ async def check_train_info():
         
         current_trains = all_trains_by_line.get(line_key, set())
         
-        # --- 1. 「消えた電車」の検知と予測 ---
-        previous_trains = previous_trains_by_line.get(line_key, set())
-        disappeared_trains = previous_trains - current_trains
-        
+        # ★もし、チェック中の路線が東武東上線なら、探偵モードを起動！
+        if line_key == 'Tojo':
+            # 1. 「消えた電車」の検知と予測 (東上線限定)
+            previous_trains = previous_trains_by_line.get(line_key, set())
+            previous_train_numbers = {train[0] for train in previous_trains}
+            current_train_numbers = {train[0] for train in current_trains}
+            disappeared_train_numbers = previous_train_numbers - current_train_numbers
+            
+            disappeared_trains_full_data = {train for train in previous_trains if train[0] in disappeared_train_numbers}
+
+        # 「本当に異常な」消滅だけを抜き出す
         truly_disappeared_trains = set()
-        for train in disappeared_trains:
+        for train in disappeared_trains_full_data:
             _, _, destination_en, from_station_en, to_station_en, _ = train
             if from_station_en == destination_en or to_station_en == destination_en: continue
             is_normal_handover = False
@@ -1006,8 +1013,10 @@ async def check_train_info():
 
                 print(f"[{line_jp_name}] 通知を送信しました: {new_rare_trains}")
 
-        # --- STEP 6: 最後に、現在の状況を「短期記憶」に保存 ---
-        previous_trains_by_line[line_key] = current_trains
+        # ★東上線の時だけ、次のチェックのために今の状況を記憶する
+        if line_key == 'Tojo':
+            previous_trains_by_line[line_key] = current_trains
+    
 
 # Botを起動する
 try:

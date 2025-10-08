@@ -231,7 +231,7 @@ LINE_CONFIG = {
             ('odpt.TrainType:Tobu.SemiExpress', 'Ogawamachi'),
 
             # --- 普通 ---
-            #('odpt.TrainType:Tobu.Local', 'Ikebukuro'),
+            ('odpt.TrainType:Tobu.Local', 'Ikebukuro'),
             ('odpt.TrainType:Tobu.Local', 'ShinKiba'),
             ('odpt.TrainType:Tobu.Local', 'Shonandai'),
             ('odpt.TrainType:Tobu.Local', 'MusashiKosugi'),
@@ -310,6 +310,7 @@ LINE_CONFIG = {
             ('odpt.TrainType:JR-East.Local', 'Omiya'),
 
             ('odpt.TrainType:JR-East.Rapid', 'Tokyo'),
+            ('odpt.TrainType:JR-East.Rapid', 'Mitaka'),
             ('odpt.TrainType:JR-East.Rapid', 'MusashiKoganei'),
             ('odpt.TrainType:JR-East.Rapid', 'Kokubunji'),
             ('odpt.TrainType:JR-East.Rapid', 'Tachikawa'),
@@ -803,7 +804,7 @@ def get_all_trains_by_line():
 
     trains_by_line = {line: set() for line in LINE_CONFIG.keys()}
     for train in all_trains_data:
-        required_keys = ["odpt:railway", "odpt:trainNumber", "odpt:trainType", "odpt:fromStation"]
+        required_keys = ["odpt:railway", "odpt:trainNumber", "odpt:trainType", "odpt:fromStation", "odpt:railDirection"]
         if not all(key in train and train.get(key) for key in required_keys): continue
         
         line_api_name_full = train["odpt:railway"].split(':')[-1]
@@ -821,7 +822,8 @@ def get_all_trains_by_line():
             to_station = to_station_full.split('.')[-1] if to_station_full else None
             destination_station_list = train.get("odpt:destinationStation")
             destination_name = destination_station_list[-1].split('.')[-1] if destination_station_list else None
-            trains_by_line[line_key].add((train_number, train_type, destination_name, from_station, to_station))
+            rail_direction = train["odpt:railDirection"]
+            trains_by_line[line_key].add((train_number, train_type, destination_name, from_station, to_station, rail_direction))
     return trains_by_line
 
 # Discordに接続するための準備

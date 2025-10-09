@@ -218,11 +218,11 @@ LINE_CONFIG = {
             },
             {
                 'destination': ['MotomachiChukagai', 'ShinKiba', 'Shonandai', 'Ebina', 'MusashiKosugi'], 
-                'last_seen_at': ['Asaka']
+                'last_seen_at': ['Wakoshi', 'Asaka']
             },
             {
                 'destination': 'Ikebukuro', 
-                'last_seen_at': ['ShimoItabashi', 'KitaIkebukuro']
+                'last_seen_at': ['ShimoAkatsuka', 'TobuNerima', 'KamiItabashi', 'Tokiwadai', 'NakaItabashi','Oyaam', 'ShimoItabashi', 'KitaIkebukuro']
             }
         ],
         'timetable': {
@@ -594,6 +594,7 @@ LINE_CONFIG = {
             ('odpt.TrainType:JR-East.LimitedExpress', 'Iwaki'),
             ('odpt.TrainType:JR-East.LimitedExpress', 'Katsuta'),
             ('odpt.TrainType:JR-East.LimitedExpress', 'Sendai'),
+            ('odpt.TrainType:JR-East.LimitedExpress', 'Takamatsu'),
             ('odpt.TrainType:JR-East.SleeperLimitedExpress', 'Tokyo'),
         },
         'type_dict': {
@@ -1255,9 +1256,17 @@ async def check_train_info():
                     
                     destination_jp = STATION_DICT.get(final_dest_en)
                     if destination_jp is None:
-                        if is_subway_related: destination_jp = "地下鉄方面"
-                        elif final_dest_en is None and line_key in ['Saikyo', 'ShonanShinjuku']: destination_jp = '蛇窪信号場'
-                        else: destination_jp = "行先不明"
+                        if final_dest_en is None:
+                            if line_key in ['Saikyo', 'ShonanShinjuku']:
+                                destination_jp = '蛇窪信号所'
+                            elif is_subway_related:
+                                destination_jp = "地下鉄方面"
+                            else:
+                                destination_jp = "行先不明"
+                        else:
+                            destination_jp = final_dest_en # 辞書にない場合はAPI名をそのまま使う
+                    
+                    from_station_jp = STATION_DICT.get(from_station_en, from_station_en)
                     
                     if to_station_en:
                         to_station_jp = STATION_DICT.get(to_station_en, to_station_en)

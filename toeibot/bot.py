@@ -25,7 +25,8 @@ NOTIFICATION_USER_ID = os.getenv('NOTIFICATION_USER_ID')
 API_KEYS = {
     'Toei': os.getenv('ODPT_TOKEN_TOEI'),
     'Tobu': os.getenv('ODPT_TOKEN_CHALLENGE'),
-    'JR-East': os.getenv('ODPT_TOKEN_CHALLENGE')
+    'JR-East': os.getenv('ODPT_TOKEN_CHALLENGE'),
+    'YokohamaMunicipal': os.getenv('ODPT_TOKEN_TOEI'),
 }
 
 # --- 複数路線対応のための設定エリア ---
@@ -216,6 +217,10 @@ LINE_CONFIG = {
                 'last_seen_at': ['Tamayodo']
             },
             {
+                'destination': ['MotomachiChukagai', 'ShinKiba', 'Shonandai', 'Ebina', 'MusashiKosugi'], 
+                'last_seen_at': ['Asaka']
+            },
+            {
                 'destination': 'Ikebukuro', 
                 'last_seen_at': ['ShimoItabashi', 'KitaIkebukuro']
             }
@@ -360,6 +365,7 @@ LINE_CONFIG = {
 
             ('odpt.TrainType:JR-East.LimitedExpress', 'Tokyo'),
             ('odpt.TrainType:JR-East.LimitedExpress', 'Shinjuku'),
+            ('odpt.TrainType:JR-East.LimitedExpress', 'Kawaguchiko'),
             ('odpt.TrainType:JR-East.LimitedExpress', 'Kofu'),
             ('odpt.TrainType:JR-East.LimitedExpress', 'Ryuo'),
             ('odpt.TrainType:JR-East.LimitedExpress', 'Matsumoto'),
@@ -425,9 +431,8 @@ LINE_CONFIG = {
     'ShonanShinjuku': {
         'operator': 'JR-East',
         'api_name': 'JR-East.ShonanShinjuku',
-        'jp_name': '湘南新宿ライン',
+        'jp_name': '湘南新宿ﾗｲﾝ',
         'timetable': {
-            # ★代表的な行き先だけを入れた仮のリスト。後で君の知識で育ててね！
             #普通
             ('odpt.TrainType:JR-East.Local', 'Odawara'),
             ('odpt.TrainType:JR-East.Local', 'Kozu'),
@@ -460,12 +465,150 @@ LINE_CONFIG = {
             ('odpt.TrainType:JR-East.LimitedExpress', 'Shinjuku'),
             ('odpt.TrainType:JR-East.LimitedExpress', 'Ohuna'),
             ('odpt.TrainType:JR-East.LimitedExpress', 'Odawara'),
+            ('odpt.TrainType:JR-East.LimitedExpress', 'TobuNikko'),
+            ('odpt.TrainType:JR-East.LimitedExpress', 'KinugawaOnsen'),
         },
         'type_dict': {
             'odpt.TrainType:JR-East.Local': '普通',
             'odpt.TrainType:JR-East.Rapid': '快速',
             'odpt.TrainType:JR-East.SpecialRapid': '特別快速',
             'odpt.TrainType:JR-East.LimitedExpress': '特急',
+        }
+    },
+    'Utsunomiya': {
+        'operator': 'JR-East',
+        'api_name': 'JR-East.Utsunomiya',
+        'jp_name': '宇都宮線',
+        'timetable': {
+            ('odpt.TrainType:JR-East.Local', 'Ito'),
+            ('odpt.TrainType:JR-East.Local', 'Numazu'),
+            ('odpt.TrainType:JR-East.Local', 'Atami'),
+            ('odpt.TrainType:JR-East.Local', 'Odawara'),
+            ('odpt.TrainType:JR-East.Local', 'Kozu'),
+            ('odpt.TrainType:JR-East.Local', 'Hiratsuka'),
+            ('odpt.TrainType:JR-East.Local', 'Shinagawa'),
+            ('odpt.TrainType:JR-East.Local', 'Ueno'),
+            ('odpt.TrainType:JR-East.Local', 'Omiya'),
+            ('odpt.TrainType:JR-East.Local', 'Koga'),
+            ('odpt.TrainType:JR-East.Local', 'Koganei'),
+            ('odpt.TrainType:JR-East.Local', 'Utsunomiya'),
+            ('odpt.TrainType:JR-East.Rapid', 'Ueno'),
+            ('odpt.TrainType:JR-East.Rapid', 'Utsunomiya'),
+            ('odpt.TrainType:JR-East.LimitedExpress', 'TobuNikko'),
+            ('odpt.TrainType:JR-East.LimitedExpress', 'KinugawaOnsen'),
+        },
+        'type_dict': {
+            'odpt.TrainType:JR-East.Local': '普通',
+            'odpt.TrainType:JR-East.Rapid': '快速ﾗﾋﾞｯﾄ',
+            'odpt.TrainType:JR-East.LimitedExpress': '特急',
+        }
+    },
+    'Takasaki': {
+        'operator': 'JR-East',
+        'api_name': 'JR-East.Takasaki',
+        'jp_name': '高崎線',
+        'timetable': {
+            ('odpt.TrainType:JR-East.Local', 'Ito'),
+            ('odpt.TrainType:JR-East.Local', 'Numazu'),
+            ('odpt.TrainType:JR-East.Local', 'Atami'),
+            ('odpt.TrainType:JR-East.Local', 'Odawara'),
+            ('odpt.TrainType:JR-East.Local', 'Kozu'),
+            ('odpt.TrainType:JR-East.Local', 'Hiratsuka'),
+            ('odpt.TrainType:JR-East.Local', 'Shinagawa'),
+            ('odpt.TrainType:JR-East.Local', 'Tokyo'),
+            ('odpt.TrainType:JR-East.Local', 'Ueno'),
+            ('odpt.TrainType:JR-East.Local', 'Kagohara'),
+            ('odpt.TrainType:JR-East.Local', 'Takasaki'),
+            ('odpt.TrainType:JR-East.Local', 'ShimMaebashi'),
+            ('odpt.TrainType:JR-East.Local', 'Maebashi'),
+            ('odpt.TrainType:JR-East.Rapid', 'Ueno'),
+            ('odpt.TrainType:JR-East.Rapid', 'Takasaki'),
+            ('odpt.TrainType:JR-East.LimitedExpress', 'Ueno'),
+            ('odpt.TrainType:JR-East.LimitedExpress', 'Shinjuku'),
+            ('odpt.TrainType:JR-East.LimitedExpress', 'Konosu'),
+            ('odpt.TrainType:JR-East.LimitedExpress', 'Honjo'),
+            ('odpt.TrainType:JR-East.LimitedExpress', 'Takasaki'),
+            ('odpt.TrainType:JR-East.LimitedExpress', 'NaganoharaKusatsuguchi'),
+        },
+        'type_dict': {
+            'odpt.TrainType:JR-East.Local': '普通',
+            'odpt.TrainType:JR-East.Rapid': '快速ｱｰﾊﾞﾝ',
+            'odpt.TrainType:JR-East.LimitedExpress': '特急',
+        }
+    },
+    'Tokaido': {
+        'operator': 'JR-East',
+        'api_name': 'JR-East.Tokaido',
+        'jp_name': '東海道線',
+        'timetable': {
+            ('odpt.TrainType:JR-East.Local', 'Ito'),
+            ('odpt.TrainType:JR-East.Local', 'Numazu'),
+            ('odpt.TrainType:JR-East.Local', 'Atami'),
+            ('odpt.TrainType:JR-East.Local', 'Odawara'),
+            ('odpt.TrainType:JR-East.Local', 'Kozu'),
+            ('odpt.TrainType:JR-East.Local', 'Hiratsuka'),
+            ('odpt.TrainType:JR-East.Local', 'Shinagawa'),
+            ('odpt.TrainType:JR-East.Local', 'Tokyo'),
+            ('odpt.TrainType:JR-East.Local', 'Ueno'),
+            ('odpt.TrainType:JR-East.Local', 'Tsuchiura'),
+            ('odpt.TrainType:JR-East.Local', 'Mito'),
+            ('odpt.TrainType:JR-East.Local', 'Katsuta'),
+            ('odpt.TrainType:JR-East.Local', 'Takahagi'),
+            ('odpt.TrainType:JR-East.Local', 'Kagohara'),
+            ('odpt.TrainType:JR-East.Local', 'Takasaki'),
+            ('odpt.TrainType:JR-East.Local', 'ShimMaebashi'),
+            ('odpt.TrainType:JR-East.Local', 'Maebashi'),
+            ('odpt.TrainType:JR-East.Rapid', 'Matsudo'),
+            ('odpt.TrainType:JR-East.Rapid', 'Toride'),
+            ('odpt.TrainType:JR-East.Rapid', 'Narita'),
+            ('odpt.TrainType:JR-East.SpecialRapid', 'Shinagawa'),
+            ('odpt.TrainType:JR-East.SpecialRapid', 'Tsuchiura'),
+            ('odpt.TrainType:JR-East.LimitedExpress', 'Odawara'),
+            ('odpt.TrainType:JR-East.LimitedExpress', 'Hiratsuka'),
+            ('odpt.TrainType:JR-East.LimitedExpress', 'Tokyo'),
+            ('odpt.TrainType:JR-East.LimitedExpress', 'Shinjuku'),
+            ('odpt.TrainType:JR-East.LimitedExpress', 'Iwaki'),
+            ('odpt.TrainType:JR-East.LimitedExpress', 'Katsuta'),
+            ('odpt.TrainType:JR-East.LimitedExpress', 'Sendai'),
+            ('odpt.TrainType:JR-East.SleeperLimitedExpress', 'Tokyo'),
+        },
+        'type_dict': {
+            'odpt.TrainType:JR-East.Local': '普通',
+            'odpt.TrainType:JR-East.Rapid': '快速',
+            'odpt.TrainType:JR-East.SpecialRapid': '特別快速',
+            'odpt.TrainType:JR-East.LimitedExpress': '特急',
+            'odpt.TrainType:JR-East.SleeperLimitedExpress': '寝台特急',
+        }
+    },
+    'Blue': {
+        'operator': 'YokohamaMunicipal',
+        'api_name': 'YokohamaMunicipal.Blue',
+        'jp_name': 'ﾌﾞﾙｰﾗｲﾝ',
+        'timetable': {
+            ('odpt.TrainType:YokohamaMunicipal.Local', 'Azamino'),
+            ('odpt.TrainType:YokohamaMunicipal.Local', 'KamiNagaya'),
+            ('odpt.TrainType:YokohamaMunicipal.Local', 'Kamiooka'),
+            ('odpt.TrainType:YokohamaMunicipal.Local', 'Nippa'),
+            ('odpt.TrainType:YokohamaMunicipal.Local', 'ShinYokohama'),
+            ('odpt.TrainType:YokohamaMunicipal.Local', 'Odoriba'),
+            ('odpt.TrainType:YokohamaMunicipal.Local', 'Shonandai'),
+        },
+        'type_dict': {
+            'odpt.TrainType:YokohamaMunicipal.Local': '普通',
+            'odpt.TrainType:YokohamaMunicipal.Rapid': '快速',
+        }
+    },
+    'Green': {
+        'operator': 'YokohamaMunicipal',
+        'api_name': 'YokohamaMunicipal.Green',
+        'jp_name': 'ｸﾞﾘｰﾝﾗｲﾝ',
+        'timetable': {
+            ('odpt.TrainType:YokohamaMunicipal.Local', 'Hiyoshi'),
+            ('odpt.TrainType:YokohamaMunicipal.Local', 'CenterKita'),
+            ('odpt.TrainType:YokohamaMunicipal.Local', 'Nakayama'),
+        },
+        'type_dict': {
+            'odpt.TrainType:YokohamaMunicipal.Local': '普通',
         }
     },
 }
@@ -608,7 +751,8 @@ STATION_DICT = {
 
     # --- [追加] JR臨時列車用 (主要駅) ---
     'Hitachi': '日立', 'Ashikaga': '足利', 'HigashiTokorozawa': '東所沢', 'EchigoYuzawa': '越後湯沢',  
-    'Ujiie': '氏家', 
+    'Ujiie': '氏家', 'TobuNikko': '東武日光', 'Nikko': '日光', 'KinugawaOnsen': '鬼怒川温泉',
+    'ShimoImaichi': '下今市', 'Tokamachi': '十日町', 'HokukyuTokamachi': 'ほくほく線十日町',   
 
     # --- [追加] JR総武線・房総各線 (主要駅) ---
     'Kinshicho': '錦糸町', 'Funabashi': '船橋', 'Tsudanuma': '津田沼', 'Chiba': '千葉', 
@@ -676,6 +820,45 @@ STATION_DICT = {
     # 伊東線 (熱海～伊東)
     # Atamiは上記にあり
     'Kinomiya': '来宮', 'IzuTaga': '伊豆多賀', 'Ajiro': '網代', 'Usami': '宇佐美', 'Ito': '伊東',
+
+    # --- [追加] JR常磐線 ---
+    # 上野～大津港 (全駅)
+    'Ueno': '上野', 'Nippori': '日暮里', 'Mikawashima': '三河島', 'MinamiSenju': '南千住',
+    'KitaSenju': '北千住', 'Ayase': '綾瀬', 'Kameari': '亀有', 'Kanamachi':'金町',
+    'Matsudo': '松戸', 'KitaMatsudo': '北松戸', 'Mabashi': '馬橋', 'ShinMatsudo': '新松戸',
+    'KitaKogane': '北小金', 'Kashiwa': '柏', 'KitaKashiwa': '北柏', 'Abiko': '我孫子',
+    'Tennoji': '天王台', 'Toride': '取手', 'Fujishiro': '藤代', 'Ryugasakishi': '龍ケ崎市',
+    'Ushiku': '牛久', 'HitachinoUshiku': 'ひたち野うしく', 'Arakawaoki': '荒川沖',
+    'Tsuchiura': '土浦', 'Kandatsu': '神立', 'Takahama': '高浜', 'Ishioka': '石岡',
+    'Hatori': '羽鳥', 'Iwama': '岩間', 'Tomobe': '友部', 'Uchihara': '内原', 'Akatsuka': '赤塚',
+    'Kairakuen': '偕楽園', 'Mito': '水戸', 'Katsuta': '勝田', 'Sawa': '佐和',
+    'Tokai': '東海', 'Omika': '大甕', 'HitachiTaga': '常陸多賀', 'Hitachi': '日立',
+    'Ogitsu': '小木津', 'Ju-O': '十王', 'Takahagi': '高萩', 'MinamiNakago': '南中郷',
+    'Isohara': '磯原', 'Otsuko': '大津港',
+
+    # 大津港～仙台 (主要駅)
+    'Nakoso': '勿来', 'Ueda': '植田', 'Izumi': '泉', 'Yumoto': '湯本', 'Iwaki': 'いわき',
+    'Hirono': '広野', 'Tomioka': '富岡', 'Okuma': '大熊', 'Futaba': '双葉', 'Namie': '浪江',
+    'Odaka': '小高', 'Haranomachi': '原ノ町', 'Soma': '相馬', 'Shinchi': '新地',
+    'Watari': '亘理', 'Iwanuma': '岩沼', 'Natori': '名取', 'MinamiSendai': '南仙台',
+    'Nagame': '長町', 'Sendai': '仙台',
+
+    # --- [追加] 横浜市営地下鉄 ---
+    # ブルーライン
+    'Shonandai': '湘南台', 'ShimoIida': '下飯田', 'Tateba': '立場', 'Nakada': '中田', 
+    'Odoriba': '踊場', 'Totsuka': '戸塚', 'Maioka': '舞岡', 'Shimonagaya': '下永谷', 'Kaminagaya': '上永谷', 
+    'KonanChuo': '港南中央', 'Kamiooka': '上大岡', 'Gumyoji': '弘明寺', 'Maita': '蒔田', 
+    'Yoshinocho': '吉野町', 'Bandobashi': '阪東橋', 'IsezakiChojamachi': '伊勢佐木長者町',
+    'Kannai': '関内', 'Sakuragicho': '桜木町', 'Takashimacho': '高島町', 'Yokohama': '横浜', 
+    'MitsuzawaShimocho': '三ツ沢下町', 'MitsuzawaKamicho': '三ツ沢上町', 'Katakuracho': '片倉町',
+    'KishineKoen': '岸根公園', 'ShinYokohama': '新横浜', 'KitaShinYokohama': '北新横浜', 
+    'Nippa': '新羽', 'Nakamachidai': '仲町台', 'CenterMinami': 'センター南',
+    'CenterKita': 'センター北', 'Nakagawa': '中川', 'Azamino': 'あざみ野',
+
+    # グリーンライン
+    'Nakayama': '中山', 'Kawawacho': '川和町', 'TsuzukiFureainooka': '都筑ふれあいの丘',
+    'KitaYamata': '北山田', 'HigashiYamata': '東山田', 'Takata': '高田', 
+    'HiyoshiHoncho': '日吉本町', 'Hiyoshi': '日吉',
 }
 
 # 停車駅パターンを定義する辞書（最終完成版）
@@ -929,10 +1112,21 @@ async def check_train_info():
                     # 地下鉄直通の行き先リストを取得
                     subway_dests = handover_stations.get('Wakoshi', [])
 
-                    # --- ここからが君の設計した究極の思考回路！ ---
-                    
-                    # 状況1: 「見合わせ」と「直通中止」が同時に発生している場合
-                    if train_info_text and "運転を見合わせています" in train_info_text and "直通運転も中止しています" in train_info_text:
+                        # --- ↓↓↓↓ここからが君の設計した究極の思考回路！↓↓↓↓ ---
+                        
+                        # --- 優先ルール1: 遅延時の特別予測 ---
+                    is_subway_related = train_number[-1] in ['T', 'K', 'S']
+                    is_normal_delay = train_info_text and "遅れ" in train_info_text and "運転を見合わせていません" in train_info_text
+
+                    if is_normal_delay and is_subway_related:
+                            if destination_en == 'Shinrinkoen':
+                                predicted_dest_jp = '坂戸'
+                            elif destination_en == 'Kawagoeshi':
+                                predicted_dest_jp = '上福岡'
+
+                        # --- 優先ルール2: 運転見合わせ & 直通中止 ---
+                        # (predicted_dest_jp がまだ未定の場合のみ、こちらのロジックが動く)
+                    elif train_info_text and "運転を見合わせています" in train_info_text and "直通運転を中止しています" in train_info_text:
                         # さらに、消えた電車が地下鉄行きだった場合
                         if destination_en in subway_dests:
                             # 1-A: 特定の区間（上板橋～成増 or 池袋～和光市）なら「志木」行きと予測
@@ -984,7 +1178,14 @@ async def check_train_info():
                     
                     # メッセージ組み立て
                     train_type_jp = type_dict.get(train_type_en, train_type_en)
-                    final_destination_jp = predicted_dest_jp if predicted_dest_jp else "行先不明"
+                    final_destination_jp = predicted_dest_jp
+
+                        # 最後の仕上げ：それでも行き先不明な地下鉄直通は「地下鉄方面」とする
+                    if final_destination_jp is None:
+                            if is_subway_related:
+                                final_destination_jp = "地下鉄方面"
+                            else:
+                                final_destination_jp = "行先不明"
                     from_station_jp = STATION_DICT.get(from_station_en, from_station_en)
                     
                     if to_station_en:

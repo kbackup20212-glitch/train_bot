@@ -492,14 +492,21 @@ LINE_CONFIG = {
             ('odpt.TrainType:JR-East.Local', 'Koga'),
             ('odpt.TrainType:JR-East.Local', 'Koganei'),
             ('odpt.TrainType:JR-East.Local', 'Utsunomiya'),
+            ('odpt.TrainType:JR-East.Local', 'Nikko'),
+            ('odpt.TrainType:JR-East.Local', 'Kuroiso'),
+            ('odpt.TrainType:JR-East.Local', 'Karasuyama'),
             ('odpt.TrainType:JR-East.Rapid', 'Ueno'),
             ('odpt.TrainType:JR-East.Rapid', 'Utsunomiya'),
             ('odpt.TrainType:JR-East.LimitedExpress', 'TobuNikko'),
             ('odpt.TrainType:JR-East.LimitedExpress', 'KinugawaOnsen'),
+            ('odpt.TrainType:JR-East.Local', 'Ofuna'),
+            ('odpt.TrainType:JR-East.Local', 'Zushi'),
+            ('odpt.TrainType:JR-East.Rapid', 'Utsunomiya'),
+            ('odpt.TrainType:JR-East.Rapid', 'Zushi'),
         },
         'type_dict': {
             'odpt.TrainType:JR-East.Local': '普通',
-            'odpt.TrainType:JR-East.Rapid': '快速ﾗﾋﾞｯﾄ',
+            'odpt.TrainType:JR-East.Rapid': '快速',
             'odpt.TrainType:JR-East.LimitedExpress': '特急',
         }
     },
@@ -529,10 +536,18 @@ LINE_CONFIG = {
             ('odpt.TrainType:JR-East.LimitedExpress', 'Honjo'),
             ('odpt.TrainType:JR-East.LimitedExpress', 'Takasaki'),
             ('odpt.TrainType:JR-East.LimitedExpress', 'NaganoharaKusatsuguchi'),
+            ('odpt.TrainType:JR-East.Rapid', 'Maebashi'),
+            ('odpt.TrainType:JR-East.Rapid', 'Takasaki'),
+            ('odpt.TrainType:JR-East.Rapid', 'Kagohara'),
+            ('odpt.TrainType:JR-East.Rapid', 'Hiratsuka'),
+            ('odpt.TrainType:JR-East.Rapid', 'Kozu'),
+            ('odpt.TrainType:JR-East.Rapid', 'Odawara'),
+            ('odpt.TrainType:JR-East.SpecialRapid', 'Takasaki'),
+            ('odpt.TrainType:JR-East.SpecialRapid', 'Odawara'),
         },
         'type_dict': {
             'odpt.TrainType:JR-East.Local': '普通',
-            'odpt.TrainType:JR-East.Rapid': '快速ｱｰﾊﾞﾝ',
+            'odpt.TrainType:JR-East.Rapid': '快速',
             'odpt.TrainType:JR-East.LimitedExpress': '特急',
         }
     },
@@ -592,6 +607,8 @@ LINE_CONFIG = {
             ('odpt.TrainType:YokohamaMunicipal.Local', 'ShinYokohama'),
             ('odpt.TrainType:YokohamaMunicipal.Local', 'Odoriba'),
             ('odpt.TrainType:YokohamaMunicipal.Local', 'Shonandai'),
+            ('odpt.TrainType:YokohamaMunicipal.Rapid', 'Azamino'),
+            ('odpt.TrainType:YokohamaMunicipal.Rapid', 'Shonandai'),
         },
         'type_dict': {
             'odpt.TrainType:YokohamaMunicipal.Local': '普通',
@@ -803,7 +820,19 @@ STATION_DICT = {
     'Utsunomiya': '宇都宮', 'Suzumenomiya': '雀宮', 'Ishibashi': '石橋', 'JichiIdai': '自治医大', 'Koganei': '小金井',
     'Nogi': '野木', 'Mamada': '間々田', 'Oyama': '小山', 'Koga': '古河', 'Kurihashi': '栗橋', 'HigashiWashinomiya': '東鷲宮',
     'Kuki': '久喜', 'Shiraoka': '白岡', 'Hasuda': '蓮田', 'HigashiOmiya': '東大宮', 'Toro': '土呂',
-    # Omiyaは他路線で追加済み
+    
+    # --- [追加] JR宇都宮線 (北部) ---
+    'Okamoto': '岡本', 'Hoshakuji': '宝積寺', 'Ujiie': '氏家', 'Kamasusaka': '蒲須坂',
+    'Kataoka': '片岡', 'Yaita': '矢板', 'Nozaki': '野崎', 'NishiNasuno': '西那須野',
+    'Nasushiobara': '那須塩原', 'Kuroiso': '黒磯',
+
+    # --- [追加] JR日光線 ---
+    'Tsuruta': '鶴田', 'Kanuma': '鹿沼', 'Fubasami': '文挟', 'ShimotsukeOsawa': '下野大沢',
+    'Imaichi': '今市', 'Nikko': '日光',
+
+    # --- [追加] JR烏山線 ---
+    'ShimotsukeHanaoka': '下野花岡', 'Niita': '仁井田', 'Konoyama': '鴻野山',
+    'Ogane': '大金', 'Karasuyama': '烏山',
 
     # 湘南新宿ライン・横須賀線 (大宮～久里浜)
     # Omiya, Akabane, Ikebukuro, Shinjuku, Shibuya, Ebisuは他路線で追加済み

@@ -364,6 +364,7 @@ LINE_CONFIG = {
             ('odpt.TrainType:JR-East.CommuterSpecialRapid', 'Tokyo'),
 
             ('odpt.TrainType:JR-East.LimitedExpress', 'Tokyo'),
+            ('odpt.TrainType:JR-East.LimitedExpress', 'Chiba'),
             ('odpt.TrainType:JR-East.LimitedExpress', 'Shinjuku'),
             ('odpt.TrainType:JR-East.LimitedExpress', 'Kawaguchiko'),
             ('odpt.TrainType:JR-East.LimitedExpress', 'Kofu'),
@@ -569,6 +570,9 @@ LINE_CONFIG = {
             ('odpt.TrainType:JR-East.Local', 'Mito'),
             ('odpt.TrainType:JR-East.Local', 'Katsuta'),
             ('odpt.TrainType:JR-East.Local', 'Takahagi'),
+            ('odpt.TrainType:JR-East.Local', 'Koga'),
+            ('odpt.TrainType:JR-East.Local', 'Koganei'),
+            ('odpt.TrainType:JR-East.Local', 'Utsunomiya'),
             ('odpt.TrainType:JR-East.Local', 'Kagohara'),
             ('odpt.TrainType:JR-East.Local', 'Takasaki'),
             ('odpt.TrainType:JR-East.Local', 'ShimMaebashi'),
@@ -576,8 +580,13 @@ LINE_CONFIG = {
             ('odpt.TrainType:JR-East.Rapid', 'Matsudo'),
             ('odpt.TrainType:JR-East.Rapid', 'Toride'),
             ('odpt.TrainType:JR-East.Rapid', 'Narita'),
+            ('odpt.TrainType:JR-East.Rapid', 'Maebashi'),
+            ('odpt.TrainType:JR-East.Rapid', 'Takasaki'),
+            ('odpt.TrainType:JR-East.Rapid', 'Kagohara'),
             ('odpt.TrainType:JR-East.SpecialRapid', 'Shinagawa'),
             ('odpt.TrainType:JR-East.SpecialRapid', 'Tsuchiura'),
+            ('odpt.TrainType:JR-East.SpecialRapid', 'Takasaki'),
+            ('odpt.TrainType:JR-East.SpecialRapid', 'Odawara'),
             ('odpt.TrainType:JR-East.LimitedExpress', 'Odawara'),
             ('odpt.TrainType:JR-East.LimitedExpress', 'Hiratsuka'),
             ('odpt.TrainType:JR-East.LimitedExpress', 'Tokyo'),
@@ -817,7 +826,7 @@ STATION_DICT = {
     # Omiyaは他路線で追加済み
 
     # 宇都宮線 (宇都宮～大宮)
-    'Utsunomiya': '宇都宮', 'Suzumenomiya': '雀宮', 'Ishibashi': '石橋', 'JichiIdai': '自治医大', 'Koganei': '小金井',
+    'Utsunomiya': '宇都宮', 'Suzumenomiya': '雀宮', 'Ishibashi': '石橋', 'Jichiidai': '自治医大', 'Koganei': '小金井',
     'Nogi': '野木', 'Mamada': '間々田', 'Oyama': '小山', 'Koga': '古河', 'Kurihashi': '栗橋', 'HigashiWashinomiya': '東鷲宮',
     'Kuki': '久喜', 'Shiraoka': '白岡', 'Hasuda': '蓮田', 'HigashiOmiya': '東大宮', 'Toro': '土呂',
     
@@ -1009,22 +1018,31 @@ def get_train_information(operator_name, line_api_name):
         print(f"エラー発生！{operator_name}の運行情報APIから情報を取得できませんでした。")
         return None
 
-# 運行情報テキストから「運転見合わせ区間」を抜き出す専門家
+# 運行情報テキストから「運転見合わせ区間」を抜き出す専門家（最終FIX版）
 def extract_incident_section(text):
     if text is None:
-        return None
+        return None, None
     
-    # 「〇〇駅間の上下線で運転を見合わせています」というパターンを探す
-    pattern = r"(.*?)駅間の上下線で運転を見合わせています"
+    # 探し出すパターンのリスト（「しております」に対応）
+    patterns = [
+        # パターン1：「〇〇～〇〇駅間の上下線で運転を見合わせ(し?)て(います/おります)」
+        r'([^\s～]+)～([^\s～]+)駅間の上下線で運転を見合わせ(?:ています|し?ております)',
+        
+        # パターン2：「〇〇～〇〇駅間で運転を見合わせ(し?)て(います/おります)」
+        r'([^\s～]+)～([^\s～]+)駅間で運転を見合わせ(?:ています|し?ております)',
+        
+        # パターン3：「〇〇～〇〇間で運転を見合わせ(し?)て(います/おります)」
+        r'([^\s～]+)～([^\s～]+)間で運転を見合わせ(?:ています|し?ております)',
+    ]
     
-    match = re.search(pattern, text)
+    for pattern in patterns:
+        match = re.search(pattern, text)
+        if match:
+            # パターンに一致した場合、1番目と2番目の駅名を返す
+            return match.group(1), match.group(2)
     
-    if match:
-        # パターンに一致した場合、カッコで囲んだ部分（駅名～駅名）を返す
-        return match.group(1)
-    
-    # パターンに一致しなかった場合は何も返さない
-    return None
+    # どのパターンにも一致しなかった場合は何も返さない
+    return None, None
     
 # 全路線の情報を整理する関数
 def get_all_trains_by_line():

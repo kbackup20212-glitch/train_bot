@@ -555,6 +555,7 @@ LINE_CONFIG = {
                 'ｻﾌｨｰﾙ踊り子': {'Tokyo', 'IzukyuShimoda'},
                 '踊り子': {'Tokyo', 'IzukyuShimoda', 'Shinjuku'},
                 '湘南': {'Tokyo', 'Shinjuku', 'Hiratsuka', 'Odawara'},
+                '成田ｴｸｽﾌﾟﾚｽ': {'Ohuna', 'NaritaAirportTerminal1'},
             },
             '通常リスト': {
                 # 特急以外の定期運用をここに書く
@@ -923,7 +924,7 @@ STATION_DICT = {
     'Muikamachi': '六日町', 'UonumaKyuryo': '魚沼丘陵', 'Misashima': '美佐島', 'Shinza': 'しんざ', 
     'Tokamachi': '十日町', 'Matsudai': 'まつだい', 
     'Oikeikoinomori': '大池いこいの森', # ★この駅が抜けていました！
-    'HokuhokuOshima': 'ほくほく大島', 'MushigawaOshima': '虫川大杉', 'Uragawara': 'うらがわら', 
+    'HokuhokuOshima': 'ほくほく大島', 'MushigawaOsugi': '虫川大杉', 'Uragawara': 'うらがわら', 
     'Kubiki': 'くびき', 'Saigata': '犀潟', 'Naoetsu': '直江津',
     'EchigoYuzawa': '越後湯沢', # 直通先
 
@@ -1032,9 +1033,13 @@ def scrape_hokuhoku_line_info():
             place_text = place_td.get_text(strip=True)
             print(f"  取得データ: 種別'{train_type_jp}', 行先'{destination_jp}', 列番'{train_number}', 場所'{place_text}'")
             
-            from_station_jp, to_station_jp = place_text, None
-            if '～' in place_text:
-                from_station_jp, to_station_jp = place_text.split('～')
+            from_station_jp = place_text
+            to_station_jp = None
+            
+            # 見た目が似ているあらゆる「～」で分割を試みる
+            parts = re.split(r'[～〜~]', place_text)
+            if len(parts) == 2:
+                from_station_jp, to_station_jp = parts[0], parts[1]
             
             train_type_en = inv_type_dict.get(train_type_jp)
             destination_en = inv_station_dict.get(destination_jp)
@@ -1196,6 +1201,8 @@ def get_jreast_tokkyu_name(train_number):
         
         if first_digit == 5:
             return "サンライズ"
+        elif first_digit == 2:
+            return "成田ｴｸｽﾌﾟﾚｽ"
         elif first_digit == 3:
             # 3000番台の判定
             if 3001 <= num <= 3019:
@@ -1282,29 +1289,20 @@ async def check_train_info():
     today = date.today()
     if last_check_date != today:
         print(f"日付が変わりました。({last_check_date} -> {today}) 通知履歴をリセットします。")
-        for key in notified_rare_trains:
-            notified_rare_trains[key].clear()
+        for key in notified_rare_trains: notified_rare_trains[key].clear()
         last_check_date = today
 
-    current_minute = datetime.now().minute
     print(f"{CHECK_INTERVAL_SECONDS}秒ごとに全路線の運行情報をチェックします...")
     
     # --- STEP 2: 全路線の最新情報を取得 ---
     all_trains_by_line = get_all_trains_by_line()
-    if all_trains_by_line is None:
-        return
+    if all_trains_by_line is None: return
 
     # --- STEP 3: 路線ごとに、一つずつチェックを開始 ---
     for line_key, config in LINE_CONFIG.items():
-        # ★ここからが改造箇所！
-        # 路線ごとのカスタム設定を読み込む（設定がなければ0とする）
-        custom_interval = config.get('check_interval_minutes', 0)
-        # もしカスタム設定があり、かつ現在の「分」がその倍数でなければ、スキップ
-        if custom_interval > 0 and current_minute % custom_interval != 0:
-            continue
         # この路線で使う設定を読み込む
         line_jp_name = config['jp_name']
-        timetable = config.get('timetable', set())
+        timetable = config.get('timetable', {}) # 辞書かもしれないので {} をデフォルトに
         conditional_timetable = config.get('conditional_timetable', [])
         type_dict = config.get('type_dict', {})
         handover_stations = config.get('handover_stations', {})
@@ -1313,7 +1311,7 @@ async def check_train_info():
         
         current_trains = all_trains_by_line.get(line_key, set())
         
-        # このサイクルで通知すべき珍しい電車を集めるための箱
+        # --- このサイクルで通知すべき珍しい電車をすべて集めるための箱 ---
         final_rare_trains_to_notify = set()
 
         # --- STEP 4: 「消滅検知」と思考プロセス (東上線限定) ---
@@ -1329,7 +1327,7 @@ async def check_train_info():
             for train in disappeared_trains_full_data:
                 _, _, destination_en, from_station_en, to_station_en, _ = train
                 if from_station_en == destination_en or to_station_en == destination_en: continue
-                is_normal_handover = False;
+                is_normal_handover = False
                 for station, valid_dests in handover_stations.items():
                     if from_station_en == station and destination_en in valid_dests: is_normal_handover = True; break
                 if is_normal_handover: continue
@@ -1365,8 +1363,8 @@ async def check_train_info():
                                 predicted_dest_en = inv_station_dict.get('志木')
                             else:
                                 try:
-                                    idx_s1 = station_order.index(inv_station_dict[station1_jp])
-                                    idx_s2 = station_order.index(inv_station_dict[station2_jp])
+                                    idx_s1 = station_order.index(inv_station_dict.get(station1_jp))
+                                    idx_s2 = station_order.index(inv_station_dict.get(station2_jp))
                                     if 'Inbound' in rail_direction: predicted_dest_en = station_order[max(idx_s1, idx_s2)]
                                     elif 'Outbound' in rail_direction: predicted_dest_en = station_order[min(idx_s1, idx_s2)]
                                 except Exception: pass
@@ -1376,8 +1374,8 @@ async def check_train_info():
                     elif station1_jp and station2_jp and station_order:
                         try:
                             idx_from = station_order.index(from_station_en)
-                            idx_s1 = station_order.index(inv_station_dict[station1_jp])
-                            idx_s2 = station_order.index(inv_station_dict[station2_jp])
+                            idx_s1 = station_order.index(inv_station_dict.get(station1_jp))
+                            idx_s2 = station_order.index(inv_station_dict.get(station2_jp))
                             section_start_idx, section_end_idx = min(idx_s1, idx_s2), max(idx_s1, idx_s2)
                             if 'Inbound' in rail_direction and idx_from > section_end_idx:
                                 predicted_dest_en = station_order[section_end_idx]
@@ -1402,7 +1400,8 @@ async def check_train_info():
         # --- STEP 6: 最終的な通知処理 ---
         new_rare_trains_to_notify = set()
         for train_data in final_rare_trains_to_notify:
-            if train_data[0][0] not in notified_rare_trains[line_key]:
+            train_number = train_data[0][0]
+            if train_number not in notified_rare_trains[line_key]:
                 new_rare_trains_to_notify.add(train_data)
 
         if new_rare_trains_to_notify:
@@ -1411,20 +1410,21 @@ async def check_train_info():
                 message_parts = []
                 for train_data in new_rare_trains_to_notify:
                     original_train, final_type_en, final_dest_en = train_data
-                    train_number, _, _, from_station_en, to_station_en, _ = original_train
+                    train_number, _, _, from_station_en, to_station_en, rail_direction = original_train
                     
+                    is_subway_related = train_number[-1] in ['T', 'K', 'S']
                     train_type_jp = type_dict.get(final_type_en, final_type_en)
                     if line_key == 'ChuoRapid' and final_type_en == 'odpt.TrainType:JR-East.Local':
                         train_type_jp = get_chuo_local_name(train_number)
-
-                    destination_jp = STATION_DICT.get(final_dest_en)
+                    
+                    destination_jp = STATION_DICT.get(final_dest_en) if final_dest_en else None
                     if destination_jp is None:
-                        is_subway_related = train_number[-1] in ['T', 'K', 'S']
                         if final_dest_en is None:
-                            if line_key in ['Saikyo', 'ShonanShinjuku']: destination_jp = '蛇窪信号場'
+                            if line_key in ['Saikyo', 'ShonanShinjuku']: destination_jp = '蛇窪信号所'
                             elif line_key == 'Tojo' and is_subway_related: destination_jp = "地下鉄方面"
                             else: destination_jp = "行先不明"
-                        else: destination_jp = final_dest_en
+                        else:
+                            destination_jp = final_dest_en
                     
                     from_station_jp = STATION_DICT.get(from_station_en, from_station_en)
                     if to_station_en:
@@ -1453,7 +1453,7 @@ async def check_train_info():
 
                 for train_data in new_rare_trains_to_notify:
                     notified_rare_trains[line_key].add(train_data[0][0])
-                print(f"[{line_jp_name}] 通知を送信しました: {len(new_rare_trains_to_notify)}件")
+                print(f"[{line_jp_name}] 通知を送信しました: {new_rare_trains_to_notify}")
 
         # --- STEP 7: 短期記憶の更新 (東上線限定) ---
         if line_key == 'Tojo':

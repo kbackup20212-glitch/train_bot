@@ -324,7 +324,7 @@ LINE_CONFIG = {
         'operator': 'JR-East', 'api_name': 'JR-East.ChuoRapid', 'jp_name': '中央快速線',
         'timetable': {
             '種別別リスト': {
-                '普通': {'Tachikawa', 'Otsuki', 'Kobuchizawa', 'Matsumoto'},
+                '普通': {'Tachikawa', 'Otsuki', 'Kawaguchiko', 'Kofu', 'Kobuchizawa', 'Matsumoto'},
                 'むさしの号': {'Omiya', 'Hachioji'},
                 '各停': {'MusashiKoganei', 'Tachikawa', 'Toyoda', 'Hachioji', 'Takao', 'Otsuki', 'Ome'},
             },
@@ -355,6 +355,9 @@ LINE_CONFIG = {
 
             ('odpt.TrainType:JR-East.CommuterSpecialRapid', 'Tokyo'),
 
+            ('odpt.TrainType:JR-East.SpecialRapid', 'Tokyo'),
+            ('odpt.TrainType:JR-East.SpecialRapid', 'Ome'),
+
             ('odpt.TrainType:JR-East.LimitedExpress', 'Tokyo'),
             ('odpt.TrainType:JR-East.LimitedExpress', 'Chiba'),
             ('odpt.TrainType:JR-East.LimitedExpress', 'Shinjuku'),
@@ -363,6 +366,8 @@ LINE_CONFIG = {
             ('odpt.TrainType:JR-East.LimitedExpress', 'Ryuo'),
             ('odpt.TrainType:JR-East.LimitedExpress', 'Matsumoto'),
             ('odpt.TrainType:JR-East.LimitedExpress', 'Hakuba'),
+            ('odpt.TrainType:JR-East.LimitedExpress', 'Awakamogawa'),
+            ('odpt.TrainType:JR-East.LimitedExpress', 'Tateyama'),
          },
         },
         'type_dict': {
@@ -370,6 +375,7 @@ LINE_CONFIG = {
             'odpt.TrainType:JR-East.Rapid': '快速',
             'odpt.TrainType:JR-East.ChuoSpecialRapid': '中央特快',
             'odpt.TrainType:JR-East.OmeSpecialRapid': '青梅特快',
+            'odpt.TrainType:JR-East.SpecialRapid': 'ﾎﾘ快おくたま',
             'odpt.TrainType:JR-East.CommuterRapid': '通勤快速',
             'odpt.TrainType:JR-East.CommuterSpecialRapid': '通勤特快',
             'odpt.TrainType:JR-East.LimitedExpress': '特急',
@@ -555,7 +561,7 @@ LINE_CONFIG = {
                 'ｻﾌｨｰﾙ踊り子': {'Tokyo', 'IzukyuShimoda'},
                 '踊り子': {'Tokyo', 'IzukyuShimoda', 'Shinjuku'},
                 '湘南': {'Tokyo', 'Shinjuku', 'Hiratsuka', 'Odawara'},
-                '成田ｴｸｽﾌﾟﾚｽ': {'Ohuna', 'NaritaAirportTerminal1'},
+                '成田ｴｸｽﾌﾟﾚｽ': {'Ofuna', 'NaritaAirportTerminal1'},
             },
             '通常リスト': {
                 # 特急以外の定期運用をここに書く
@@ -584,6 +590,7 @@ LINE_CONFIG = {
             ('odpt.TrainType:JR-East.Rapid', 'Narita'),
             ('odpt.TrainType:JR-East.Rapid', 'Maebashi'),
             ('odpt.TrainType:JR-East.Rapid', 'Takasaki'),
+            ('odpt.TrainType:JR-East.Rapid', 'Utsunomiya'),
             ('odpt.TrainType:JR-East.Rapid', 'Kagohara'),
             ('odpt.TrainType:JR-East.SpecialRapid', 'Shinagawa'),
             ('odpt.TrainType:JR-East.SpecialRapid', 'Tsuchiura'),
@@ -814,7 +821,7 @@ STATION_DICT = {
     'Ujiie': '氏家', 'TobuNikko': '東武日光', 'Nikko': '日光', 'KinugawaOnsen': '鬼怒川温泉',
     'ShimoImaichi': '下今市', 'Tokamachi': '十日町', 'HokukyuTokamachi': '北急十日町',
     'Takamatsu': '高松','Izumoshi': '出雲市','Okayama': '岡山', 'IzukyuShimoda': '伊豆急下田',
-    'Naganoharakusatsuguchi': '長野原草津口',  
+    'Naganoharakusatsuguchi': '長野原草津口', 'Kotohira': '琴平', 
 
     # --- [追加] JR総武線・房総各線 (主要駅) ---
     'Kinshicho': '錦糸町', 'Funabashi': '船橋', 'Tsudanuma': '津田沼', 'Chiba': '千葉', 
@@ -885,15 +892,18 @@ STATION_DICT = {
     'HigashiTotsuka': '東戸塚', 'Totsuka': '戸塚', 'Ofuna': '大船', 'KitaKamakura': '北鎌倉', 'Kamakura': '鎌倉',
     'Zushi': '逗子', 'HigashiZushi': '東逗子', 'Taura': '田浦', 'Yokosuka': '横須賀', 'Kinugasa': '衣笠', 'Kurihama': '久里浜',
 
-    # 東海道線 (横浜～沼津)
+    # 東海道線 (横浜～沼津、以遠主要駅)
     # Yokohama, Totsuka, Ofunaは上記にあり
     'Fujisawa': '藤沢', 'Tsujido': '辻堂', 'Chigasaki': '茅ヶ崎', 'Hiratsuka': '平塚', 'Oiso': '大磯', 'Ninomiya': '二宮',
     'Kozu': '国府津', 'Kamonomiya': '鴨宮', 'Odawara': '小田原', 'Hayakawa': '早川', 'Nebukawa': '根府川', 'Manazuru': '真鶴',
-    'Yugawara': '湯河原', 'Atami': '熱海', 'Kannami': '函南', 'Mishima': '三島', 'Numazu': '沼津',
+    'Yugawara': '湯河原', 'Atami': '熱海', 'Kannami': '函南', 'Mishima': '三島', 'Numazu': '沼津', 'Shizuoka': '静岡',
+    'Hamamatsu': '浜松', 'Toyohashi': '豊橋', 'Nagoya': '名古屋', 'Gifu': '岐阜', 'Ogaki': '大垣', 'Maibara': '米原',
+    'Osaka': '大阪', 'ShinOsaka': '新大阪', 'Himeji': '姫路',
 
-    # 伊東線 (熱海～伊東)
+    # 伊東線 (熱海～伊東)・伊豆箱根鉄道(主要駅)
     # Atamiは上記にあり
     'Kinomiya': '来宮', 'IzuTaga': '伊豆多賀', 'Ajiro': '網代', 'Usami': '宇佐美', 'Ito': '伊東',
+    'IzukyuShimoda': '伊豆急下田','IzuKogen': '伊豆高原', 'Daiba': '大場','Shuzenji': '修善寺',
 
     # --- [追加] JR常磐線 ---
     # 上野～大津港 (全駅)
@@ -1348,9 +1358,16 @@ def get_jreast_tokkyu_name(train_number):
         first_digit = int(train_number[0])
         
         if first_digit == 5:
-            return "サンライズ"
+            return "寝台特急ｻﾝﾗｲｽﾞ"
         elif first_digit == 2:
             return "成田ｴｸｽﾌﾟﾚｽ"
+        elif first_digit == 6:
+            return "湘南"
+        elif first_digit == 8:
+            if 8040 <= num <= 8042:
+                return "寝台特急ｻﾝﾗｲｽﾞ"
+            else:
+                return "踊り子"
         elif first_digit == 3:
             # 3000番台の判定
             if 3001 <= num <= 3019:
@@ -1369,8 +1386,8 @@ def get_chuo_local_name(train_number):
     if not train_number.endswith('M'):
         return "各停"
     
-    # ルール2：末尾がMで、かつ「262?M」のパターンの場合 → 「むさしの号」
-    if re.match(r'^262\dM$', train_number):
+    # ルール2：末尾がMで、かつ「26??M」のパターンの場合 → 「むさしの号」
+    if re.match(r'^26\d{2}M$', train_number):
         return "むさしの号"
     
     # ルール1：それ以外の末尾がMの場合 → 「普通」

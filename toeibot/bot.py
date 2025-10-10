@@ -9,8 +9,7 @@ from bs4 import BeautifulSoup
 from datetime import date
 from dotenv import load_dotenv
 from datetime import date      # ← おそらくこれは既にある
-from datetime import datetime  # ← ★この行を追加！
-from datetime import datetime, timedelta
+from datetime import date, datetime, time # ★ , time を追加
 
 # Webサーバー機能のための道具
 from flask import Flask
@@ -1009,77 +1008,81 @@ def keep_alive():
 # --- プログラム本体 ---
 # ---------------------------------------------------------------
 
-# グローバル変数（記憶を保持するため）
+# Botが最後にチェックした日付を記憶するための場所
 last_check_date = None
+# ★最後に通知したメトロの運行情報を記憶するための場所
+last_metro_incident_text = None
+
 notified_rare_trains = {line: set() for line in LINE_CONFIG.keys()}
 previous_trains_by_line = {line: set() for line in LINE_CONFIG.keys()}
 
-# ほくほく線から情報をスクレイピングするための専用関数（デバッグモード）
+# ほくほく線から情報をスクレイピングするための専用関数（製品版）
 def scrape_hokuhoku_line_info():
+    # --- 深夜帯は処理をスキップ ---
+    now_time = datetime.now().time()
+    if time(0, 0) <= now_time <= time(5, 10):
+        print("[ほくほく線] 運行時間外のため、スクレイピングをスキップします。")
+        return set()
+
     HOKUHOKU_URL = "https://www.hokuhoku.co.jp/unkou/pcGuide.html"
     try:
-        print("\n--- [ほくほく線スクレイピング デバッグ開始] ---")
         response = requests.get(HOKUHOKU_URL)
-        response.encoding = response.apparent_encoding # 文字化け対策
+        response.encoding = response.apparent_encoding
         soup = BeautifulSoup(response.content, 'html.parser')
         
         current_trains = set()
+        # 逆引き用の辞書を用意
         inv_station_dict = {v: k for k, v in STATION_DICT.items()}
         hoku_type_dict = LINE_CONFIG.get('Hokuhoku', {}).get('type_dict', {})
         inv_type_dict = {v: k for k, v in hoku_type_dict.items()}
 
-        all_trs = soup.find_all('tr')
-        print(f"発見したテーブルの行(tr)の数: {len(all_trs)}行")
-
-        for i, row in enumerate(all_trs):
-            print(f"\n--- 行 {i+1} を調査 ---")
+        # テーブルのすべての行（trタグ）を取得
+        for row in soup.find_all('tr'):
             kind_td = row.find('td', class_='kind')
             dest_td = row.find('td', class_='destination')
             name_td = row.find('td', class_='name')
             place_td = row.find('td', class_='place')
 
             if not all([kind_td, dest_td, name_td, place_td]):
-                print("  -> 電車情報ではないためスキップ")
                 continue
 
+            # 各データを日本語で取得
             train_type_jp = kind_td.get_text(strip=True)
             destination_jp = dest_td.get_text(strip=True)
             train_number = name_td.get_text(strip=True)
             place_text = place_td.get_text(strip=True)
-            print(f"  取得データ: 種別'{train_type_jp}', 行先'{destination_jp}', 列番'{train_number}', 場所'{place_text}'")
             
+            # 現在地を「出発駅」と「到着駅」に分割
             from_station_jp = place_text
             to_station_jp = None
-            
-            # 見た目が似ているあらゆる「～」で分割を試みる
-            parts = re.split(r'[～〜~]', place_text)
+            parts = re.split(r'[～〜~]', place_text) # どんな「～」でも分割
             if len(parts) == 2:
                 from_station_jp, to_station_jp = parts[0], parts[1]
             
-            train_type_en = inv_type_dict.get(train_type_jp)
+            # データをBotの内部形式（API名）に逆変換
+            train_type_en = inv_type_dict.get(train_type_jp, f"Hokuhoku.{train_type_jp}")
             destination_en = inv_station_dict.get(destination_jp)
             from_station_en = inv_station_dict.get(from_station_jp)
             to_station_en = inv_station_dict.get(to_station_jp) if to_station_jp else None
-            print(f"    -> 逆変換後: 種別'{train_type_en}', 行先'{destination_en}', 出発駅'{from_station_en}'")
             
+            # 方向はこのページからは取得できないので None とする
             if destination_en and from_station_en:
-                final_tuple = (train_number, train_type_en, destination_en, from_station_en, to_station_en, None)
-                current_trains.add(final_tuple)
-                print(f"      ==> 最終データ作成成功: {final_tuple}")
-            else:
-                print(f"      ==> [エラー] 逆変換に失敗したため、データを作成できませんでした。")
+                current_trains.add((train_number, train_type_en, destination_en, from_station_en, to_station_en, None))
 
-        print(f"\n--- [ほくほく線スクレイピング デバッグ終了] ---")
-        print(f"最終的に作成された電車データの数: {len(current_trains)}件")
         return current_trains
-        
     except Exception as e:
         print(f"エラー発生！ほくほく線のWebページから情報を取得できませんでした。エラー内容: {e}")
         return set()
     
-# APIから電車の情報を取得する関数
+# APIから電車の情報を取得する関数（深夜は休む版）
 def get_trains_from_api(operator_name):
-    
+    # --- ↓↓↓↓ここが新しいロジック！↓↓↓↓ ---
+    now_time = datetime.now().time()
+    if time(2, 0) <= now_time <= time(4, 0):
+        print(f"[{operator_name}] 運行時間外のため、APIアクセスをスキップします。")
+        return None # Noneを返して処理を中断する
+    # --- ↑↑↑↑ここまでが新しいロジック！↑↑↑↑ ---
+
     token = API_KEYS.get(operator_name)
     if not token:
         print(f"エラー: {operator_name}用のAPIキーが設定されていません。")
@@ -1441,24 +1444,20 @@ async def check_train_info():
     # get_train_information関数を呼び出して、運行情報の「全文」を取得する
     metro_info_text = get_train_information('TokyoMetro', None)
     
-    # --- ↓↓↓↓ここが新しい「思考停止スイッチ」！↓↓↓↓ ---
-    if metro_info_text:
-        # 「西武池袋線との直通運転を中止」または「東急東横線との直通運転を中止」という
-        # "完全な文章"に一致するかどうかを、正規表現でチェックする
-        pattern = r'(西武池袋線|東急東横線)との直通運転を中止しています'
-        if re.search(pattern, metro_info_text):
-            print(f"[{datetime.now()}] 西武線または東横線との直通中止を検知したため、今回の予測は見送ります。")
-            return # 予測を中止し、今回のチェックを終了する
-    # --- ↑↑↑↑ここまでが新しい「思考停止スイッチ」！↑↑↑↑ ---
-
-    # get_metro_incident_infoを呼び出すのは、上のチェックを通過した後
-    incident_time, incident_location, incident_cause = get_metro_incident_info()
-    
-    if incident_time:
-        print(f"東京メトロ運行情報検知: {incident_time}, {incident_location}, {incident_cause}")
+    if metro_info_text and metro_info_text != "平常運転":
         
-        # 予測したい電車のリスト
-        target_trains = {
+        # 2. 次に、「思考停止」すべき案件か、最優先でチェック
+        stop_pattern = r'(西武池袋線|東急東横線)との直通運転を中止しています'
+        if re.search(stop_pattern, metro_info_text):
+            print(f"[{datetime.now()}] 西武線または東横線との直通中止を検知したため、予測は見送ります。")
+            # 思考停止する場合でも、その事実を記憶しておく
+            last_metro_incident_text = metro_info_text
+            # return # ここで return すると、この後の都営などのチェックが動かないので修正
+        
+        elif metro_info_text != last_metro_incident_text:
+            incident_time, incident_location, incident_cause = get_metro_incident_info()
+            if incident_time:
+                target_trains = {
             "09:17発 快速所沢行き": ("09:17", "56K"), # (時刻, 運番)
             "09:43発 快急小手指行き": ("09:43", "30M"),
             "10:10発 快急小手指行き": ("10:10", "87S"),

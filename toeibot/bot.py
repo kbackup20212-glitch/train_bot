@@ -10,6 +10,7 @@ from datetime import date
 from dotenv import load_dotenv
 from datetime import date      # ← おそらくこれは既にある
 from datetime import datetime  # ← ★この行を追加！
+from datetime import datetime, timedelta
 
 # Webサーバー機能のための道具
 from flask import Flask
@@ -657,6 +658,20 @@ LINE_CONFIG = {
             'Hokuhoku.超快速': '超快速スノーラビット',
         }
     },
+    'Yurakucho': {
+        'operator': 'TokyoMetro',
+        'api_name': 'TokyoMetro.Yurakucho',
+        'jp_name': '有楽町線',
+        'timetable': {},
+        'type_dict': {},
+    },
+    'Fukutoshin': {
+        'operator': 'TokyoMetro',
+        'api_name': 'TokyoMetro.Fukutoshin',
+        'jp_name': '副都心線',
+        'timetable': {},
+        'type_dict': {},
+    },
 } 
 
 # --- 翻訳辞書エリア ---
@@ -1138,6 +1153,136 @@ def extract_incident_section(text):
     
     # どのパターンにも一致しなかった場合は何も返さない
     return None, None
+
+# 東京メトロの運行情報から「発生時刻」「場所」「原因」を抜き出す専門家（最終版）
+def get_metro_incident_info():
+    # 運行情報を取得
+    text = get_train_information('TokyoMetro', None)
+    if text is None:
+        return None, None, None
+
+    # "〇〇時〇〇分頃、[場所]で[原因](のため|の影響)" のパターンを探す
+    # 非常に複雑な正規表現ですが、君が見つけてくれた例文に対応しています
+    pattern = r'(\d{1,2}時\d{1,2}分頃)、(.*?)(?:駅|駅間)?(?:で|において|で発生した)(.*?)(?:のため|の影響)'
+    
+    match = re.search(pattern, text)
+    
+    if match:
+        time_str = match.group(1).strip()    # "〇〇時〇〇分頃"
+        location_str = match.group(2).strip() # "有楽町線 小竹向原"
+        cause_str = match.group(3).strip()   # "車両点検"
+        return time_str, location_str, cause_str
+    
+    # もし上のパターンに一致しなかった場合、よりシンプルなパターンで試す
+    simple_pattern = r'(\d{1,2}時\d{1,2}分頃)、(.*)'
+    simple_match = re.search(simple_pattern, text)
+    if simple_match:
+        time_str = simple_match.group(1).strip()
+        full_content = simple_match.group(2).strip()
+        return time_str, "（場所・原因の自動特定失敗）", full_content
+
+    return None, None, None
+
+# 輸送障害情報から、特定の電車の遅延を予測する専門家
+def predict_seibu_delay(incident_time_str, incident_location, incident_cause, target_train_time_str):
+    try:
+        # --- STEP 1 & 2: 基本スコアと補正係数を決定 ---
+        base_delay = 8
+        if any(word in incident_cause for word in ["人身事故", "踏切事故", "沿線火災", "保安装置故障"]):
+            base_delay = 30
+        elif "脱輪" in incident_cause:
+            base_delay = 25
+        elif any(word in incident_cause for word in ["車両点検", "信号", "架線", "ホームドア"]):
+            base_delay = 15
+        elif "ドア" in incident_cause:
+            base_delay = 12
+        elif "停止位置修正" in incident_cause:
+            base_delay = 12
+        elif "人立入" in incident_cause:
+            base_delay = 10
+
+        location_multiplier = 1.0
+
+        # 各特別区間の駅リストを定義
+        seibu_central_stations = ["池袋", "椎名町", "東長崎", "江古田", "桜台"]
+        metro_shared_stations = ["和光市", "地下鉄成増", "地下鉄赤塚", "平和台", "氷川台", "小竹向原"]
+        tojo_central_stations = ["池袋", "北池袋", "下板橋", "大山", "中板橋", "ときわ台", "上板橋", "東武練馬", "下赤塚", "成増"]
+
+        # 発生場所がどの区間に該当するかを判定
+        is_in_seibu_central = "西武池袋線" in incident_location and any(station in incident_location for station in seibu_central_stations)
+        is_in_metro_shared = any(station in incident_location for station in metro_shared_stations)
+        is_in_tojo_central = "東武東上線" in incident_location and any(station in incident_location for station in tojo_central_stations)
+
+        # 優先順位に従って係数を決定
+        if is_in_metro_shared:
+            location_multiplier = 1.5
+        elif "副都心線" in incident_location or "東急東横線" in incident_location or "みなとみらい線" in incident_location:
+            location_multiplier = 1.2
+        elif is_in_seibu_central:
+            location_multiplier = 0.7
+        elif is_in_tojo_central: # ★君が指摘してくれたロジックを復活！
+            location_multiplier = 0.6
+        elif "西武池袋線" in incident_location:
+            location_multiplier = 1.1
+        elif "東武東上線" in incident_location: # 成増以遠の場合
+            location_multiplier = 0.8
+        elif "有楽町線" in incident_location:
+            location_multiplier = 0.5
+        
+        incident_hour = int(incident_time_str.split('時')[0])
+        time_multiplier = 1.5 if 5 <= incident_hour <= 9 else 1.0
+
+        # STEP 3: 経過時間を計算
+        inc_time = datetime.strptime(incident_time_str.replace('頃', ''), '%H時%M分').time()
+        tgt_time = datetime.strptime(target_train_time_str, '%H:%M').time()
+        time_delta_minutes = (datetime.combine(date.today(), tgt_time) - datetime.combine(date.today(), inc_time)).total_seconds() / 60
+        if time_delta_minutes < 0: time_delta_minutes = 0
+
+        # STEP 4: 波及係数（増幅 or 減衰）を適用
+        initial_delay = base_delay * location_multiplier * time_multiplier
+        if "人身事故" in incident_cause or 5 <= incident_hour <= 9:
+            amplification_minutes = (time_delta_minutes / 60) * 5
+            predicted_delay = initial_delay + amplification_minutes
+        else:
+            recovery_minutes = (time_delta_minutes / 30) * 2
+            predicted_delay = initial_delay - recovery_minutes
+        
+        return max(0, predicted_delay)
+    except Exception as e:
+        print(f"遅延予測計算でエラー: {e}")
+        return 0
+
+# 予測された遅延時間から、最終的な行き先を判断する専門家
+def determine_final_form(train_name, predicted_delay):
+    # --- ↓↓↓↓ここからが最後の知恵！↓↓↓↓ ---
+    # ★特別ルール：「09:43発」は有楽町線から来るので、遅延に強い
+    if "09:43発" in train_name:
+        # 予測遅延から「回復ボーナス」として12分を差し引く
+        predicted_delay -= 12
+    # --- ↑↑↑↑ここまでが最後の知恵！↑↑↑↑ ---
+    if "快速所沢行き" in train_name:
+        if predicted_delay <= 5:
+            return "所定通り (快速 所沢行き)"
+        elif predicted_delay <= 25:
+            return "快速 清瀬行き"
+        elif predicted_delay <= 35:
+            return "準急 保谷行き"
+        else: # 36分以上
+            return "快速 石神井公園行き"
+            
+    elif "快急小手指行き" in train_name:
+        if predicted_delay <= 12:
+            return "所定通り(快急小手指行き)"
+        elif predicted_delay <= 16:
+            return "快急所沢行き"
+        elif predicted_delay <= 30:
+            return "快速清瀬行き"
+        elif predicted_delay <= 35:
+            return "準急保谷行き"
+        else: # 36分以上
+            return "快急石神井公園行き"
+    
+    return "不明"
     
 # 全路線の情報を整理する関数
 def get_all_trains_by_line():
@@ -1291,6 +1436,63 @@ async def check_train_info():
         print(f"日付が変わりました。({last_check_date} -> {today}) 通知履歴をリセットします。")
         for key in notified_rare_trains: notified_rare_trains[key].clear()
         last_check_date = today
+    
+    # --- 東京メトロの運行情報をチェック ---
+    # get_train_information関数を呼び出して、運行情報の「全文」を取得する
+    metro_info_text = get_train_information('TokyoMetro', None)
+    
+    # --- ↓↓↓↓ここが新しい「思考停止スイッチ」！↓↓↓↓ ---
+    if metro_info_text:
+        # 「西武池袋線との直通運転を中止」または「東急東横線との直通運転を中止」という
+        # "完全な文章"に一致するかどうかを、正規表現でチェックする
+        pattern = r'(西武池袋線|東急東横線)との直通運転を中止しています'
+        if re.search(pattern, metro_info_text):
+            print(f"[{datetime.now()}] 西武線または東横線との直通中止を検知したため、今回の予測は見送ります。")
+            return # 予測を中止し、今回のチェックを終了する
+    # --- ↑↑↑↑ここまでが新しい「思考停止スイッチ」！↑↑↑↑ ---
+
+    # get_metro_incident_infoを呼び出すのは、上のチェックを通過した後
+    incident_time, incident_location, incident_cause = get_metro_incident_info()
+    
+    if incident_time:
+        print(f"東京メトロ運行情報検知: {incident_time}, {incident_location}, {incident_cause}")
+        
+        # 予測したい電車のリスト
+        target_trains = {
+            "09:17発 快速所沢行き": ("09:17", "56K"), # (時刻, 運番)
+            "09:43発 快急小手指行き": ("09:43", "30M"),
+            "10:10発 快急小手指行き": ("10:10", "87S"),
+            "10:43発 F快急小手指行き": ("10:43", "33S"), 
+            "11:13発 F快急小手指行き": ("11:13", "79S"),
+            "11:43発 F快急小手指行き": ("11:43", "71S"), 
+            "12:13発 F快急小手指行き": ("12:13", "60K"),
+            "12:43発 F快急小手指行き": ("12:43", "30M"), 
+            "13:13発 F快急小手指行き": ("13:13", "87S"),
+            "13:43発 F快急小手指行き": ("13:43", "22M"), 
+            "14:43発 F快急小手指行き": ("14:43", "71S"),
+        }
+        
+        message = f"【東京メトロ運行情報に基づく西武線遅延予測】\n"
+        message += f"**原因:** {incident_time}、{incident_location}で{incident_cause}\n--------------------\n"
+
+        for train_name, train_time in target_trains.items():
+            # 1. 遅延予測AIを呼び出す
+            predicted_delay = predict_seibu_delay(incident_time, incident_location, incident_cause, train_time)
+            # 2. 行き先判断AIを呼び出す
+            final_form = determine_final_form(train_name, predicted_delay)
+
+            # "09:17発 快速所沢行き" から "快速所沢行き" の部分だけを抜き出す
+            train_type_dest = train_name.split(' ')[1] 
+
+            line1 = f"・[{train_number}]{train_type_dest}(小竹向原{train_time}発)"
+            line2 = f"予測遅延:約{predicted_delay:.0f}分 {final_form}に変更の可能性"
+            
+            message += f"{line1}\n{line2}\n"
+
+        user = await client.fetch_user(NOTIFICATION_USER_ID)
+        if user:
+            await user.send(message)
+
 
     print(f"{CHECK_INTERVAL_SECONDS}秒ごとに全路線の運行情報をチェックします...")
     
